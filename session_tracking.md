@@ -3,34 +3,27 @@
 ## 📄 Documentación Técnica Relacionada:
 - **🛠️ Log de Parches**: [patch_log.md](file:///Users/dleon/Documents/app_tickets/bot-tickets/bot-combustible/patch_log.md)
 
-## 📅 Sesión: 6 de Abril de 2026
+## 📅 Sesión: 6 de Abril de 2026 (Actualización de Tarde)
 
-### 🚀 Logros del Día
-- **Validación de Identidad Robusta**: Se corrigió el mapeo de variables desde n8n. El bot ahora busca exhaustivamente los campos `Nombre` y `Telefono` (independientemente de mayúsculas/minúsculas).
-- **Metadatos de Grado de Auditoría**: Implementación exitosa del envío de:
-  - `Nombre`: (Operador según GSheet)
-  - `Celular`: (Teléfono de 10 dígitos validado)
-  - `Fecha_registro`: (Formato DD-MM-YYYY)
-  - `Date_time`: (Timestamp con fecha y hora completa)
-  - `Nombre_imagen`: (Identificador dinámico único `ticket_NOMBRE_TIMESTAMP.jpg`)
-- **Captura Infalible de Medios**: Se migró la detección de imágenes a un sistema de `addAnswer` con `capture: true`, asegurando que el bot reaccione inmediatamente al recibir el ticket.
-- **Sanitización de Datos**: Se implementó lógica para limpiar el `Caption_imagen` de etiquetas de sistema de WhatsApp (`_event_media_`).
+### 🚀 Logros Principales
+- **Sistema de Observabilidad Pro (Logger)**: Se creó `src/logger.ts`. Implementación de logs estructurados con colores y timestamps (`[STATE]`, `[WEBHOOK]`, `[SYSTEM]`, `[FATAL]`).
+- **Depuración Dinámica**: Se introdujo la variable `WAPP_DEBUG` en el `.env` para silenciar el ruido técnico de Baileys (`silent mode`) sin perder visibilidad del negocio.
+- **Fix de Activación Indeseada de Imágenes**: Se eliminó el flujo global `dieselImageFlow`. El bot ahora ignora fotos aleatorias y solo procesa tickets tras el comando legítimo **`CARGAR`**.
+- **Simplificación de Bienvenida**: El `welcomeFlow` se refactorizó para ser informativo y no bloqueante. Ya no exige una foto al saludar.
+- **Integridad del Código**: Se corrigieron errores de declaración léxica (Lint) y se reordenaron los flujos (`register` -> `doc` -> `welcome`).
 
-### 🛠️ Estado Técnico Actual
-- **Framework**: Builderbot (v5+)
-- **Proveedores**: Baileys + JsonFileDB
-- **Endpoint n8n**: `combustible-bot` (Acciones: `validate`, `ocr`)
+### 🛠️ Estado Técnico de la Rama `main`
+- **Logs**: Estructurados y dinámicos (CDMX Timezone).
+- **Flujo de Tickets**: **OPERATIVO Y SEGURO.** Solo se activa en el paso de captura tras validación de usuario.
+- **Integración n8n**: Webhooks unificados y estables con timeout de 40s.
+
+### 📋 Próximos Pasos (Fase 2: Interfaz Web)
+1.  [ ] **Dashboard de Iniciación**: Crear una ruta `/dashboard` en el `httpServer` de `app.ts`.
+2.  [ ] **Servicio de QR Web**: Exponer `bot.qr.png` vía web para escaneo remoto en VPS.
+3.  [ ] **Visibilidad Condicional**: Controlar la exposición del sitio web mediante una variable de entorno `EXPOSE_WEB_UI`.
 
 ### 🕵️ Diagnóstico de Fuga de Datos (n8n)
-- **Problema**: Se detectó que `Fecha_registro` y `Nombre` se pierden después de los nodos de "Convert to File" y "Gemini".
-- **Causa**: n8n no propaga automáticamente el JSON del Webhook a través de nodos de procesamiento binario/IA a menos que se use un nodo **Merge** o referencia directa `$node["Webhook"].json`.
-- **Solución Recomendada**: Implementar un nodo **Merge** final configurado en modo `Combine` que una el `Webhook_Entrada` con el resultado del parseo de Gemini.
-
-### 📋 Próximos Pasos (Pendientes)
-1.  [x] **Auditoría de Datos**: Se confirmó que el bot envía correctamente todos los campos. ✅
-2.  [ ] **Refinamiento de n8n (OCR)**: Implementar el nodo Code para parsear el JSON de Gemini y fusionarlo con los datos del Webhook original.
-2.  [ ] **Fallback de Folios**: Ajustar el prompt de Gemini para mapear Folio/Transacción/Referencia de forma dinámica.
-3.  [ ] **Caption Progresivo**: Evaluar si el operador requiere instrucciones adicionales para el caption en el flujo.
+- **Actualización**: Se confirmó que el bot envía correctamente todos los campos. La solución en n8n requiere un nodo **Merge** para no perder metadatos al pasar por la IA.
 
 ---
-**Status Final de Sesión:** ✅ **OPERATIVO Y VALIDADO EN N8N.**
+**Status Final de Sesión:** ✅ **STABLE, OBSERVABLE & MERGED TO MAIN.**

@@ -35,7 +35,7 @@ const discordFlow = addKeyword('doc').addAnswer(
     }
 )
 
-const welcomeFlow = addKeyword(['hi', 'hello', 'hola', 'buenas'])
+const welcomeFlow = addKeyword(['hi', 'hello', 'hola'])
     .addAnswer(`🙌 ¡Hola! Bienvenido al *Bot de Carga de Diesel*.`)
     .addAnswer(
         [
