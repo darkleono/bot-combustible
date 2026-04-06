@@ -29,10 +29,15 @@ const welcomeFlow = addKeyword(['hi', 'hello', 'hola'])
             '👉 *doc* to view the documentation',
         ].join('\n'),
         { delay: 800, capture: true },
-        async (ctx, { fallBack }) => {
-            if (!ctx.body.toLocaleLowerCase().includes('doc')) {
-                return fallBack('You should type *doc*')
+        async (ctx, { fallBack, flowDynamic, state }) => {
+            // Verificamos si el mensaje tiene algún tipo de multimedia (imagen o documento)
+            // En Builderbot, si es media, el flag ctx.message.imageMessage o ctx.message.documentMessage existe
+            const isMedia = ctx.message?.imageMessage || ctx.message?.documentMessage || ctx.message?.videoMessage || ctx.body.includes('_event_media_') || ctx.body.includes('_event_document_')
+            
+            if (!isMedia) {
+                return fallBack('⚠️ Por favor, envía una *foto* del ticket (no texto).')
             }
+
             return
         },
         [discordFlow]
@@ -111,7 +116,7 @@ const dieselFlow = addKeyword<Provider, Database>(['subir carga', 'cargar', 'car
             const controller = new AbortController()
             const id = setTimeout(() => controller.abort(), 10000)
 
-            const response = await fetch('https://n8n2.dmls.app/webhook-test/combustible-bot', {
+            const response = await fetch('https://n8n2.dmls.app/webhook/combustible-bot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'validate', phone: ctx.from }),
@@ -145,54 +150,78 @@ const dieselFlow = addKeyword<Provider, Database>(['subir carga', 'cargar', 'car
         }
     })
     .addAnswer([
-        '📷 Por favor, envíame la **foto del ticket** con tu unidad escrita a mano:',
+        '📷 Por favor, envíame la *foto del ticket* con tu unidad escrita a mano:',
         '_Recuerda que puedes escribir la unidad debajo de la foto_'
-    ], { capture: true }, async (ctx, { flowDynamic, state, provider, endFlow }) => {
-        // 🔎 Verificamos si lo que llegó es una imagen o documento
-        if (ctx.mimetype && (ctx.mimetype.includes('image') || ctx.mimetype.includes('pdf'))) {
-            const myState = state.getMyState()
-            await flowDynamic('⏳ Descargando y enviando ticket a n8n... Un momento.')
+    ], { capture: true }, async (ctx, { flowDynamic, state, provider, fallBack }) => {
+        
+        // 🕵️ Verificación de Multimedia REAL (por mimetype o tag de evento)
+        const isMedia = ctx.mimetype?.includes('image') || ctx.mimetype?.includes('pdf') || ctx.body?.includes('_event_media_')
+
+        if (!isMedia) {
+             if (ctx.body?.toLowerCase().includes('salir')) return // Dejar que el exitFlow lo tome
+             return fallBack('⚠️ Por favor, envía una *foto* del ticket (no texto).')
+        }
+
+        const myState = state.getMyState()
+        await flowDynamic('⌛ Descargando y enviando ticket a n8n... Un momento.')
+        
+        try {
+            const controller = new AbortController()
+            const id = setTimeout(() => controller.abort(), 40000) // ⏳ Timeout extendido a 40 segundos para dar aire a Gemini y GSheets
+
+            const path = await provider.saveFile(ctx)
+            const imageBuffer = fs.readFileSync(path)
+            const base64Image = imageBuffer.toString('base64')
+            const now = new Date()
             
-            try {
-                const path = await provider.saveFile(ctx)
-                const imageBuffer = fs.readFileSync(path)
-                const base64Image = imageBuffer.toString('base64')
-                const now = new Date()
-                
-                // 🧹 Limpieza del Nombre de Imagen y Caption
-                const cleanName = (myState.name || 'op').replace(/\s+/g, '_').trim()
-                const nombreImagen = `ticket_${cleanName}_${now.getTime()}.jpg`
-                const rawCaption = ctx.body || ''
-                const finalCaption = rawCaption.includes('_event_media_') ? '' : rawCaption
+            // 🧹 Limpieza del Nombre de Imagen y Caption
+            const cleanName = (myState.name || 'op').replace(/\s+/g, '_').trim()
+            const nombreImagen = `ticket_${cleanName}_${now.getTime()}.jpg`
+            const rawCaption = ctx.body || ''
+            const finalCaption = rawCaption.includes('_event_media_') ? '' : rawCaption
 
-                const response = await fetch('https://n8n2.dmls.app/webhook-test/combustible-bot', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'ocr',
-                        Nombre: myState.name,
-                        Celular: myState.phone,
-                        Fecha_registro: now.toLocaleDateString('es-MX').replace(/\//g, '-'),
-                        Date_time: now.toLocaleString('es-MX').replace(/\//g, '-'),
-                        Nombre_imagen: nombreImagen,
-                        Caption_imagen: finalCaption,
-                        image_base64: base64Image,
-                        mimeType: ctx.mimetype
-                    })
-                })
+            console.log('📡 [OCR] Enviando a n8n... Esperando respuesta (Max 40s).')
+            const response = await fetch('https://n8n2.dmls.app/webhook/combustible-bot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'ocr',
+                    Nombre: myState.name,
+                    Celular: myState.phone,
+                    Fecha_registro: now.toLocaleDateString('es-MX').replace(/\//g, '-'),
+                    Date_time: now.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }).replace(/\//g, '-'),
+                    Nombre_imagen: nombreImagen,
+                    Caption_imagen: finalCaption,
+                    image_base64: base64Image,
+                    mimeType: ctx.mimetype
+                }),
+                signal: controller.signal
+            })
+            clearTimeout(id)
 
-                const data: any = await response.json()
-                fs.unlinkSync(path)
-                return await flowDynamic(`✅ ¡Listo! Ticket recibido. Status: ${data.message || 'Análisis completado'}`)
-            } catch (e) {
-                console.error('❌ Error procesando imagen:', e)
-                return await flowDynamic('❌ Error al procesar la imagen. Por favor reintenta enviándola como foto.')
+            // 📦 Nota: El JSON de respuesta viene directo (data.message), no anidado.
+            // Si n8n devuelve un array, tomamos el primer elemento automáticamente.
+            const data: any = await response.json()
+            const finalData = Array.isArray(data) ? data[0] : data
+            
+            console.log('📡 [DEBUG OCR] Respuesta de n8n:', JSON.stringify(data, null, 2))
+
+            if (fs.existsSync(path)) fs.unlinkSync(path) // Borrar archivo local
+
+            // 🚀 Mostrar ticket detallado o mensaje de éxito
+            if (finalData?.message || finalData?.Mensaje) {
+                return await flowDynamic(finalData.message || finalData.Mensaje)
+            } else {
+                return await flowDynamic(`✅ ¡Listo! Registro completado correctamente.`)
             }
-        } else if (ctx.body.toLowerCase().includes('salir')) {
-             await state.clear()
-             return endFlow('👋 Sesión cerrada con éxito.')
-        } else {
-            return await flowDynamic('⚠️ Por favor, envía una **foto** del ticket (no texto).')
+            
+        } catch (e) {
+            if (e.name === 'AbortError') {
+                console.error('❌ Timeout: n8n tardó demasiado (más de 40s).')
+                return await flowDynamic('⚠️ El servidor de n8n tardó demasiado en responder, pero el registro se enviará igualmente. Verifica tu Google Sheets.')
+            }
+            console.error('❌ Error procesando imagen:', e)
+            return await flowDynamic('❌ Error: Asegúrate de que el flujo de n8n esté en "Active: ON" y no haya errores internos.')
         }
     })
 

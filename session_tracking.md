@@ -21,8 +21,14 @@
 - **Proveedores**: Baileys + JsonFileDB
 - **Endpoint n8n**: `combustible-bot` (Acciones: `validate`, `ocr`)
 
+### 🕵️ Diagnóstico de Fuga de Datos (n8n)
+- **Problema**: Se detectó que `Fecha_registro` y `Nombre` se pierden después de los nodos de "Convert to File" y "Gemini".
+- **Causa**: n8n no propaga automáticamente el JSON del Webhook a través de nodos de procesamiento binario/IA a menos que se use un nodo **Merge** o referencia directa `$node["Webhook"].json`.
+- **Solución Recomendada**: Implementar un nodo **Merge** final configurado en modo `Combine` que una el `Webhook_Entrada` con el resultado del parseo de Gemini.
+
 ### 📋 Próximos Pasos (Pendientes)
-1.  [ ] **Refinamiento de n8n (OCR)**: Ajustar el nodo Code para que Procese la imagen con el nombre `Nombre_imagen` recibido.
+1.  [x] **Auditoría de Datos**: Se confirmó que el bot envía correctamente todos los campos. ✅
+2.  [ ] **Refinamiento de n8n (OCR)**: Implementar el nodo Code para parsear el JSON de Gemini y fusionarlo con los datos del Webhook original.
 2.  [ ] **Fallback de Folios**: Ajustar el prompt de Gemini para mapear Folio/Transacción/Referencia de forma dinámica.
 3.  [ ] **Caption Progresivo**: Evaluar si el operador requiere instrucciones adicionales para el caption en el flujo.
 

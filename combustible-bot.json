@@ -1,0 +1,828 @@
+{
+  "name": "combustible-bot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "combustible-bot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fddcb7a6-4a78-417b-ab78-48c4f27aec70",
+      "name": "Webhook_Entrada",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -576,
+        80
+      ],
+      "webhookId": "3d7d060f-3c46-4f54-8746-489f75e26c35"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1PFcS7cwfkKSTKIGSQrS5fOlQZnjqCne1NQ_i55C2I8c",
+          "mode": "list",
+          "cachedResultName": "Tarjetas Lucard",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PFcS7cwfkKSTKIGSQrS5fOlQZnjqCne1NQ_i55C2I8c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Tarjetas-Operadores",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PFcS7cwfkKSTKIGSQrS5fOlQZnjqCne1NQ_i55C2I8c/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Celular",
+              "lookupValue": "={{ $json.body.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        112,
+        -112
+      ],
+      "id": "55a15400-e52d-43dd-a109-875411fd1ef0",
+      "name": "BUSCAR-GSHEETS",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PB99X33ViTzdFq7S",
+          "name": "gsheets_soporte"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eec0f20f-a307-4c31-b549-4b2951031267",
+              "name": "body.phone",
+              "value": "={{ $json.body.phone.slice(-10) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        -112
+      ],
+      "id": "1dc8c5a0-344c-4b3f-97af-4625373f6d81",
+      "name": "limpiar-cel"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6f4636f3-84c4-4b21-8d78-51f4d206c718",
+              "leftValue": "={{ $json.Celular }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        304,
+        -112
+      ],
+      "id": "341aba82-8acc-4a29-b1b1-3f8248a2aeae",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "659400e6-75e6-4b11-95b1-92ec6b4d0c59",
+              "name": "Telefono",
+              "value": "={{ $json.Celular }}",
+              "type": "number"
+            },
+            {
+              "id": "7fbf9532-4c13-4222-8ec9-f32fded4a800",
+              "name": "Nombre",
+              "value": "={{ $json.Nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "74bf3296-c6a0-4428-8fec-92651857e7d1",
+              "name": "status",
+              "value": "valid",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        -224
+      ],
+      "id": "b06ef9d1-c920-4820-8cf9-50cdd41b3739",
+      "name": "existe-valido"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "166e8184-f6e0-42d3-9628-bfa25f350fb2",
+              "name": "status",
+              "value": "invalid",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        0
+      ],
+      "id": "fed595c1-808a-4224-93c4-66abf0567a8e",
+      "name": "no-existe"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        -112
+      ],
+      "id": "3cd5bf3a-f23d-46cf-9d58-fcfcc93958e5",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "validate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "86f66afa-c6c1-4f20-88f9-09efd0232dd7"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "validar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "02899a96-530b-4ef8-8530-1fbfdfa03af6",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "ocr",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ocr-datos"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -336,
+        80
+      ],
+      "id": "57902791-f579-4978-980b-b98a9f5cc3c9",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "Eres un experto en extracción de datos de tickets de combustible. Tu objetivo es analizar la imagen del ticket y extraer la información en un formato JSON estricto.\n### REGLAS DE EXTRACCIÓN PARA EL FOLIO (CRÍTICO):\n1. **Fallback de Folio**: Busca el campo \"Folio\". Si no existe, intenta encontrar \"Número de Ticket\", \"Transacción\", \"Referencia\", \"No. de Nota\" o \"Ticket\". \n2. **Campo_folio**: Debes identificar cuál fue la etiqueta exacta que encontraste en el ticket para el folio (ej: \"REFERENCIA\", \"TICKET\", \"FOLIO\") y guardarla en el campo `Campo_folio`.\n3. **Folio**: Guarda el valor numérico o alfanumérico asociado a esa etiqueta.\n### REGLAS PARA LA UNIDAD:\n1. La unidad suele estar escrita a mano o impresa. \n2. **Nomenclatura**: Las unidades siempre llevan un guion \"-\" separador entre las letras y los dígitos (Ejemplo: \"CK-12\", \"UPT-63\", \"UP-04\", \"UPM-01\", \"CK-01\"). \n3. Ignora nomenclaturas que usen \"V\" o \"v\"; nosotros usamos \"U\" o \"u\" si es necesario, pero prioriza el código directo (Letras-Números).\n### CAMPOS A EXTRAER:\n- **Unidad**: (Ej: \"UPT-63\")\n- **Gasolinera**: (Nombre o Razón Social de la estación)\n- **Campo_folio**: (La etiqueta encontrada, ej: \"TRANSACCION\")\n- **Folio**: (El valor del folio/ticket/referencia)\n- **Fecha_compra**: (Formato DD/MM/YYYY)\n- **Producto**: (Diesel, Magna o Premium)\n- **Cantidad**: (Litros, solo el número)\n- **Precio_unitario**: (Precio por litro, solo el número)\n- **Total**: (Monto total pagado, solo el número)\n### FORMATO DE SALIDA (JSON PURO):\n{\n  \"Unidad\": \"\",\n  \"Gasolinera\": \"\",\n  \"Campo_folio\": \"\",\n  \"Folio\": \"\",\n  \"Fecha_compra\": \"\",\n  \"Producto\": \"\",\n  \"Cantidad\": 0.00,\n  \"Precio_unitario\": 0.00,\n  \"Total\": 0.00\n}\nSi no encuentras un valor, deja el campo como una cadena vacía \"\" o 0.00 según corresponda. No inventes datos.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        96,
+        208
+      ],
+      "id": "73e2764b-73a6-47d4-8367-cb7a13fbec56",
+      "name": "Analyze an image",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "x0ZJUYILsDiENLhs",
+          "name": "gemini-api-key-claud-ia"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "body.image_base64",
+        "options": {
+          "fileName": "={{ $json.body.Nombre_imagen }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -80,
+        304
+      ],
+      "id": "056c425a-a0dc-4312-b0e3-7cf6f5ee50b5",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Switch').item.json.body.Nombre_imagen }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1Hunryed0qIdeB_MYCy0iMf9WgtCBrAih",
+          "mode": "list",
+          "cachedResultName": "paso_ocr_publico",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1Hunryed0qIdeB_MYCy0iMf9WgtCBrAih"
+        },
+        "options": {
+          "ocrLanguage": "es",
+          "useContentAsIndexableText": true
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        208,
+        416
+      ],
+      "id": "0452cd4f-1604-4929-908b-25ffcd85c320",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "aWY6LEovifz4tSRO",
+          "name": "Gdrive_Soporte"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        480,
+        336
+      ],
+      "id": "775e90d1-3319-46cb-b563-5363940658f6",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Obtenemos el texto crudo de Gemini\nconst rawText = $node[\"Analyze an image\"].json.content.parts[0].text;\n\n// 2. Limpiamos las etiquetas ```json y ``` que estorban\nconst cleanText = rawText.replace(/```json|```/g, \"\").trim();\n\n// 3. Lo convertimos en un objeto JSON real para n8n\nreturn JSON.parse(cleanText);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        208
+      ],
+      "id": "ff9bc5f9-b726-4ba1-ae0d-f24587ba75d3",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "17CO0jKo31ts6skBtUiSrUDRkFktmevK-7FncVBpWGRE",
+          "mode": "list",
+          "cachedResultName": "Captura_combustible_aditamentos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17CO0jKo31ts6skBtUiSrUDRkFktmevK-7FncVBpWGRE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1926610672,
+          "mode": "list",
+          "cachedResultName": "Registro_tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17CO0jKo31ts6skBtUiSrUDRkFktmevK-7FncVBpWGRE/edit#gid=1926610672"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha_registro": "={{ $('Switch').item.json.body.Fecha_registro }}",
+            "Operador": "={{ $('Switch').item.json.body.Nombre }}",
+            "Unidad": "={{ $json.Unidad }}",
+            "Gasolinera": "={{ $json.Gasolinera }}",
+            "Campo_folio": "={{ $json.Campo_folio }}",
+            "Folio": "={{ $json.Folio }}",
+            "Fecha_compra": "={{ $json.Fecha_compra }}",
+            "Producto": "={{ $json.Producto }}",
+            "Cantidad": "={{ $json.Cantidad }}",
+            "Precio_unitario": "={{ $json.Precio_unitario }}",
+            "Total": "={{ $json.Total }}",
+            "Url_foto": "={{ $json.webViewLink }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Numero_registro",
+              "displayName": "Numero_registro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Fecha_registro",
+              "displayName": "Fecha_registro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Operador",
+              "displayName": "Operador",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Unidad",
+              "displayName": "Unidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Gasolinera",
+              "displayName": "Gasolinera",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Campo_folio",
+              "displayName": "Campo_folio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Folio",
+              "displayName": "Folio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fecha_compra",
+              "displayName": "Fecha_compra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Producto",
+              "displayName": "Producto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cantidad",
+              "displayName": "Cantidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Precio_unitario",
+              "displayName": "Precio_unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Url_foto",
+              "displayName": "Url_foto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        336
+      ],
+      "id": "df4bec39-5221-43c8-9e6d-989da4d6c18f",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PB99X33ViTzdFq7S",
+          "name": "gsheets_soporte"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "17CO0jKo31ts6skBtUiSrUDRkFktmevK-7FncVBpWGRE",
+          "mode": "list",
+          "cachedResultName": "Captura_combustible_aditamentos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17CO0jKo31ts6skBtUiSrUDRkFktmevK-7FncVBpWGRE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1926610672,
+          "mode": "list",
+          "cachedResultName": "Registro_tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17CO0jKo31ts6skBtUiSrUDRkFktmevK-7FncVBpWGRE/edit#gid=1926610672"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Folio",
+              "lookupValue": "={{ $json.Folio }}"
+            },
+            {
+              "lookupColumn": "Gasolinera",
+              "lookupValue": "={{ $json.Gasolinera }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        336
+      ],
+      "id": "192faa59-2157-4505-84e8-e314987a5b23",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PB99X33ViTzdFq7S",
+          "name": "gsheets_soporte"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "63e3a914-bfb7-47ef-a24f-2ff888c2c0af",
+              "name": "message",
+              "value": "=Gracias {{ $json.Operador}}.\nTu carga fue procesada con los siguientes datos:\n\nGasolinera {{ $json.Gasolinera }}\nFecha {{ $json.Fecha_registro }}\nFolio {{ $json.Folio }}\nProducto {{ $json.Producto }}\nCantidad {{ $json.Cantidad }} Lts\nPrecio Lt. {{ $json.Precio_unitario }}\nTotal {{ $json.Total }}\n\nCon numero de registro {{ $json.Numero_registro }}\n\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1104,
+        336
+      ],
+      "id": "fb094626-badc-446f-94e1-0cc57e39beb6",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1296,
+        336
+      ],
+      "id": "7c7f51d0-a4b5-4f94-8248-377c9db5eeb6",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook_Entrada": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "limpiar-cel": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR-GSHEETS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR-GSHEETS": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "existe-valido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "no-existe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "no-existe": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "existe-valido": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "limpiar-cel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Analyze an image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze an image": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "5776505e-91be-4f9d-bb4d-2928a6b20378",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fddda07fcd913eb9105d5365318365dcc6b9df0e9a6d553a959de13c51986738"
+  },
+  "id": "U9yHlSdf6TRorqGK",
+  "tags": []
+}
