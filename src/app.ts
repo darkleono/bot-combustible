@@ -36,10 +36,10 @@ const discordFlow = addKeyword('doc').addAnswer(
 )
 
 const welcomeFlow = addKeyword(['hi', 'hello', 'hola'])
-    .addAnswer(`🙌 ¡Hola! Bienvenido al *Bot de Carga de Diesel*.`)
+    .addAnswer(`🙌 ¡Hola! Bienvenido al *${process.env.BOT_NAME || 'Chatbot'}*.`)
     .addAnswer(
         [
-            'Aquí tienes los comandos disponibles:',
+            `${process.env.BOT_DESC || 'Aquí tienes los comandos disponibles:'}`,
             '👉 Escribe *CARGAR* para subir un ticket de combustible.',
             '👉 Escribe *SALIR* si quieres cerrar tu sesión actual.',
             '👉 Escribe *doc* para ver la documentación técnica.',
@@ -241,6 +241,54 @@ const main = async () => {
                 return res.end(JSON.stringify({ status: 'ok', blacklist }))
             })
         )
+        // 🌐 WEB DASHBOARD & QR ROUTES
+        if (process.env.EXPOSE_WEB_UI === 'true') {
+            // Ruta para ver el QR directamente en el navegador
+            adapterProvider.server.get('/qr', (req, res) => {
+                const qrPath = join(process.cwd(), 'bot.qr.png')
+                if (fs.existsSync(qrPath)) {
+                    res.writeHead(200, { 'Content-Type': 'image/png' })
+                    return res.end(fs.readFileSync(qrPath))
+                }
+                res.writeHead(404)
+                return res.end('QR no disponible. El bot podria estar ya conectado.')
+            })
+
+            // Dashboard minimalista con info del proyecto
+            adapterProvider.server.get('/dashboard', (req, res) => {
+                const html = `
+                <!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Dashboard - ${process.env.BOT_NAME}</title>
+                    <style>
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; border: 1px solid #334155; }
+                        h1 { color: #38bdf8; margin-bottom: 0.5rem; }
+                        p { color: #94a3b8; }
+                        .status { display: inline-block; padding: 0.5rem 1rem; border-radius: 2rem; background: #065f46; color: #34d399; font-weight: bold; margin-bottom: 1rem; }
+                        .btn { background: #38bdf8; color: #0f172a; padding: 0.75rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: bold; transition: background 0.3s; }
+                        .btn:hover { background: #0ea5e9; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <div class="status">● BOT ONLINE</div>
+                        <h1>${process.env.BOT_NAME}</h1>
+                        <p>${process.env.BOT_DESC}</p>
+                        <hr style="border-color: #334155; margin: 1.5rem 0;">
+                        <p>Escanea el QR si no estas conectado:</p>
+                        <a href="/qr" target="_blank" class="btn">Ver Código QR</a>
+                    </div>
+                </body>
+                </html>`
+                res.writeHead(200, { 'Content-Type': 'text/html' })
+                return res.end(html)
+            })
+            
+            logger.info(`🌐 Web Dashboard exposed at http://localhost:${PORT}/dashboard`, 'SYSTEM')
+        }
 
         logger.info(`📡 Server up on port ${PORT}...`, 'SYSTEM')
         httpServer(+PORT)
