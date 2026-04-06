@@ -254,9 +254,12 @@ const main = async () => {
             ? process.env.WAPP_VERSION.split(',').map(Number)
             : [2, 3000, 1015901307]
 
+        const isDebug = process.env.WAPP_DEBUG === 'true'
+        logger.info(`Starting bot in ${isDebug ? '\x1b[33mDEBUG\x1b[0m' : '\x1b[32mSILENT\x1b[0m'} technical mode.`, 'SYSTEM')
+
         const adapterProvider = createProvider(Provider, { 
             version,
-            writeLog: false
+            writeLog: isDebug
         })
         const adapterDB = new Database({ filename: 'db.json' })
 
