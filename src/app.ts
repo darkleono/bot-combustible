@@ -59,7 +59,7 @@ const dieselImageFlow = addKeyword<Provider, Database>([EVENTS.MEDIA, EVENTS.DOC
         const myState = state.getMyState()
         console.log(`📸 Procesando ticket de: ${myState.name || 'Operador'}`)
         
-        await flowDynamic('⏳ Descargando y enviando ticket a n8n... Un momento.')
+        await flowDynamic('⏳ Subiendo imagen y procesando via webhook... Un momento.')
         
         try {
             const path = await provider.saveFile(ctx)
@@ -163,7 +163,7 @@ const dieselFlow = addKeyword<Provider, Database>(['subir carga', 'cargar', 'car
         }
 
         const myState = state.getMyState()
-        await flowDynamic('⌛ Descargando y enviando ticket a n8n... Un momento.')
+        await flowDynamic('⌛ Subiendo imagen y procesando via webhook... Un momento.')
         
         try {
             const controller = new AbortController()
