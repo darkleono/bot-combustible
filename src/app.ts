@@ -8,6 +8,19 @@ import { logger } from './logger'
 
 const PORT = process.env.PORT ?? 3008
 
+const registerFlow = addKeyword(utils.setEvent('REGISTER_FLOW'))
+    .addAnswer(`What is your name?`, { capture: true }, async (ctx, { state }) => {
+        await state.update({ name: ctx.body })
+        logger.info(`Name updated: ${ctx.body}`, 'STATE')
+    })
+    .addAnswer('What is your phone number?', { capture: true }, async (ctx, { state }) => {
+        await state.update({ phone: ctx.body })
+        logger.info(`Phone updated: ${ctx.body}`, 'STATE')
+    })
+    .addAction(async (_, { flowDynamic, state }) => {
+        await flowDynamic(`${state.get('name')}, thanks for your information!: Your phone: ${state.get('phone')}`)
+    })
+
 const discordFlow = addKeyword('doc').addAnswer(
     ['You can see the documentation here', '📄 https://builderbot.app/docs \n', 'Do you want to continue? *yes*'].join(
         '\n'
@@ -22,100 +35,20 @@ const discordFlow = addKeyword('doc').addAnswer(
     }
 )
 
-const welcomeFlow = addKeyword(['hi', 'hello', 'hola'])
-    .addAnswer(`🙌 Hello welcome to this *Chatbot*`)
+const welcomeFlow = addKeyword(['hi', 'hello', 'hola', 'buenas'])
+    .addAnswer(`🙌 ¡Hola! Bienvenido al *Bot de Carga de Diesel*.`)
     .addAnswer(
         [
-            'I share with you the following links of interest about the project',
-            '👉 *doc* to view the documentation',
+            'Aquí tienes los comandos disponibles:',
+            '👉 Escribe *CARGAR* para subir un ticket de combustible.',
+            '👉 Escribe *SALIR* si quieres cerrar tu sesión actual.',
+            '👉 Escribe *doc* para ver la documentación técnica.',
         ].join('\n'),
-        { delay: 800, capture: true },
-        async (ctx, { fallBack, flowDynamic, state }) => {
-            // Verificamos si el mensaje tiene algún tipo de multimedia (imagen o documento)
-            // En Builderbot, si es media, el flag ctx.message.imageMessage o ctx.message.documentMessage existe
-            const isMedia = ctx.message?.imageMessage || ctx.message?.documentMessage || ctx.message?.videoMessage || ctx.body.includes('_event_media_') || ctx.body.includes('_event_document_')
-            
-            if (!isMedia) {
-                return fallBack('⚠️ Por favor, envía una *foto* del ticket (no texto).')
-            }
-
-            return
-        },
-        [discordFlow]
+        { delay: 800 },
+        null,
+        [discordFlow, registerFlow]
     )
 
-const registerFlow = addKeyword(utils.setEvent('REGISTER_FLOW'))
-    .addAnswer(`What is your name?`, { capture: true }, async (ctx, { state }) => {
-        await state.update({ name: ctx.body })
-        logger.info(`Name updated: ${ctx.body}`, 'STATE')
-    })
-    .addAnswer('What is your phone number?', { capture: true }, async (ctx, { state }) => {
-        await state.update({ phone: ctx.body })
-        logger.info(`Phone updated: ${ctx.body}`, 'STATE')
-    })
-    .addAction(async (_, { flowDynamic, state }) => {
-        await flowDynamic(`${state.get('name')}, thanks for your information!: Your phone: ${state.get('phone')}`)
-    })
-
-const dieselImageFlow = addKeyword<Provider, Database>([EVENTS.MEDIA, EVENTS.DOCUMENT])
-    .addAction(async (ctx, { flowDynamic, state, provider }) => {
-        const myState = state.getMyState()
-        logger.info(`📸 Processing ticket from: ${myState.name || 'Operator'} (${ctx.from})`, 'MEDIA')
-        
-        await flowDynamic('⏳ Subiendo imagen y procesando via webhook... Un momento.')
-        
-        try {
-            const path = await provider.saveFile(ctx)
-            if (!fs.existsSync(path)) throw new Error(`El archivo no se creó en la ruta: ${path}`)
-
-            const imageBuffer = fs.readFileSync(path)
-            const base64Image = imageBuffer.toString('base64')
-
-            // 🕒 Formatos limpios de cronometría
-            const now = new Date()
-            const fechaRegistro = now.toLocaleDateString('es-MX').replace(/\//g, '-')
-            const dateTime = now.toLocaleString('es-MX').replace(/\//g, '-')
-            
-            // 🏷️ Limpieza del Nombre de Imagen y Caption
-            const cleanName = (myState.name || 'op').replace(/\s+/g, '_').trim()
-            const nombreImagen = `ticket_${cleanName}_${now.getTime()}.jpg`
-            
-            // 🧹 Limpiamos el caption si trae basura del sistema de WhatsApp
-            const rawCaption = ctx.body || ''
-            const finalCaption = rawCaption.includes('_event_media_') ? '' : rawCaption
-
-            const response = await fetch('https://n8n2.dmls.app/webhook-test/combustible-bot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'ocr',
-                    Nombre: myState.name || 'Operador Desconocido', // Valor de GSheet
-                    Celular: myState.phone || ctx.from.slice(-10),  // Valor de GSheet
-                    Fecha_registro: fechaRegistro,
-                    Date_time: dateTime,
-                    Nombre_imagen: nombreImagen,
-                    Caption_imagen: finalCaption,
-                    image_base64: base64Image,
-                    mimeType: ctx.mimetype || 'image/jpeg'
-                })
-            })
-
-            logger.webhook('ocr', { 
-                name: myState.name, 
-                date: dateTime, 
-                imgName: nombreImagen 
-            })
-
-            const data: any = await response.json()
-            await flowDynamic(`✅ ¡Listo! Ticket recibido. Status: ${data.message || 'Enviado con éxito'}`)
-            
-            fs.unlinkSync(path)
-
-        } catch (error) {
-            console.error('❌ ERROR CRÍTICO EN OCR:', error)
-            await flowDynamic(`❌ Fallo en el envío: ${error.message}. Reintenta enviándola como foto.`)
-        }
-    })
 
 const dieselFlow = addKeyword<Provider, Database>(['subir carga', 'cargar', 'carga', 'combustible'])
     .addAction(async (ctx, { endFlow, flowDynamic, state, gotoFlow }) => {
@@ -247,7 +180,7 @@ const exitFlow = addKeyword<Provider, Database>(['salir', 'SALIR', 'Salir'])
 const main = async () => {
     try {
         logger.info('🚀 Preparing flows and provider...', 'SYSTEM')
-        const adapterFlow = createFlow([welcomeFlow, registerFlow, dieselFlow, dieselImageFlow, exitFlow])
+        const adapterFlow = createFlow([welcomeFlow, registerFlow, dieselFlow, exitFlow])
 
         // 🛠️ Lectura inteligente de la versión desde el .env
         const version: any = process.env.WAPP_VERSION
