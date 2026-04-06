@@ -1,5 +1,8 @@
 # 🎫 Proyecto: Automatización de Tickets Diesel (WhatsApp <-> n8n)
 ---
+## 📄 Documentación Técnica Relacionada:
+- **🛠️ Log de Parches**: [patch_log.md](file:///Users/dleon/Documents/app_tickets/bot-tickets/bot-combustible/patch_log.md)
+
 ## 📅 Sesión: 6 de Abril de 2026
 
 ### 🚀 Logros del Día
