@@ -11,39 +11,33 @@ Este documento traza la ruta técnica para transformar el bot de código estáti
 
 ---
 
-## 🔥 Fase 2: Desacople de Lógica (JSON Engine)
-*Objetivo: Que el código (`app.ts`) sea una "carcasa" vacía que ejecute reglas de un archivo externo.*
-
-- [ ] **Configuración de Flujos (`flows.config.json`)**:
-    - Definición de keywords, respuestas y disparadores (Triggers).
-    - Mapeo de "Acciones Dinámicas" (ej: `VALIDATE_N8N`, `PROCESS_OCR`).
-- [ ] **Constructor de Respuestas Globales**: Implementar un generador de flujos que recorra el JSON y use `addKeyword` dinámicamente.
-- [ ] **Gestión de Instrucciones**: Permitir cambiar las guías de uso del bot sin tocar el código fuente.
+## ✅ Fase 2: Desacople de Lógica (JSON Engine) (COMPLETADO)
+- [x] **Configuración de Flujos (`flows.config.json`)**: Definición de keywords, respuestas y disparadores (Triggers).
+- [x] **Flow Builder Visual (/builder)**: Interfaz para editar el JSON en tiempo real sin tocar código.
+- [x] **Búsqueda Exacta**: Implementación de `exact: true` para evitar disparos accidentales en el chat normal.
 
 ---
 
-## ⚡ Fase 3: El Action Bridge (n8n & State Manager)
-*Objetivo: Centralizar las llamadas a webhooks y la gestión de memoria (`state`).*
+## ✅ Fase 3: El Action Bridge & Estándar de 3 Capas (COMPLETADO)
+*Objetivo: Centralizar las llamadas a webhooks y establecer un ciclo de vida robusto para el bot.*
 
-- [ ] **Central de Webhooks**: Crear un archivo de configuración para las URLs de n8n (o leerlas de variables de entorno).
-- [ ] **Action Map System**: Implementar una librería de funciones internas que el motor JSON pueda invocar por nombre.
-    - `validate_driver_webhook`: Llamada y guardado en `state.update({ name, id })`.
-    - `process_diesel_ocr`: Captura de imagen, subida a n8n y guardado de resultados.
-- [ ] **Manejo de Respuestas de API**: Lógica para decidir el siguiente paso del bot basada en lo que n8n responda (ej: Si n8n dice "no existe firma", pedirla de nuevo).
+- [x] **Arquitectura de 3 Capas (Standard Template)**:
+    1. **Inicio (Entry/Security)**: Validación obligatoria via n8n (`VALIDATE_USER_N8N`) en keywords globales.
+    2. **Proceso (Logic/OCR)**: Captura de datos y procesamiento asíncrono (`PROCESS_TICKET_N8N`).
+    3. **Salida (Cleanup/Context)**: Limpieza de estado (`state.clear()`) y cierre de contexto (`endFlow()`) para evitar "flujos zombie".
+- [x] **Acciones Data-Driven**: Las acciones (`actions.ts`) ahora leen sus mensajes directamente del JSON, permitiendo control total desde la UI.
 
 ---
 
-## 🚀 Fase 4: Escalabilidad & Orquestación
+## 🚀 Fase 4: Escalabilidad & Orquestación (PRÓXIMO PASO)
 *Objetivo: Lanzar múltiples versiones del bot en un mismo servidor.*
 
+- [ ] **Independencia de n8n (In-House Migration)**: Mover la lógica de Google Sheets y Gemini directamente a Node.js para eliminar la dependencia de webhooks externos.
 - [ ] **Multi-Config Runner**: Capacidad de arrancar el bot con diferentes archivos JSON de configuración.
-- [ ] **Docker Compose Avanzado**:
-    - Orquestación de bots independientes (Bot Combustible, Bot Llantas, etc.).
-    - Asignación dinámica de puertos y volúmenes de sesión.
-- [ ] **Panel de Administración Extendido**: Ver todos los bots corriendo en el mismo Dashboard maestro.
+- [ ] **Docker Compose Avanzado**: Orquestación de bots independientes (Bot Combustible, Bot Llantas, etc.).
 
 ---
 
 ## 🔒 Consideraciones de Seguridad
-- Implementación de un Token de acceso para el Dashboard web.
-- Encriptación de las URLs de los webhooks de n8n.
+- [x] **Interceptor de Prioridad**: Las rutas web se procesan antes que los mensajes de WhatsApp para evitar conflictos de ruteo.
+- [ ] **Auth Dashboard**: Implementación de un Token de acceso para el Dashboard web.

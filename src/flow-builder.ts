@@ -26,8 +26,9 @@ export const registerDynamicFlows = () => {
                     .replace(/{{BOT_DESC}}/g, process.env.BOT_DESC || '')
             }
 
-            // 1. Iniciamos el flujo con sus keywords
-            let currentFlow = addKeyword(flowData.keywords)
+            // 1. Iniciamos el flujo con sus keywords y soporte para "exact"
+            const keywordOptions: any = flowData.options?.exact ? { exact: true } : {}
+            let currentFlow = addKeyword(flowData.keywords, keywordOptions)
 
             // 2. Cargamos Acción Global de flujo (si existe)
             if (flowData.actionName) {

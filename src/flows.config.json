@@ -1,46 +1,11 @@
 {
-  "WELCOME_FLOW": {
-    "keywords": ["hi", "hello", "hola"],
-    "messages": [
-      "🙌 ¡Hola! Bienvenido al *{{BOT_NAME}}*.",
-      "{{BOT_DESC}}\n\n👉 Escribe *CARGAR* para subir un ticket de combustible.\n👉 Escribe *SALIR* si quieres cerrar tu sesión actual.\n👉 Escribe *doc* para ver la documentación técnica."
-    ],
+  "DIESEL_FLOW": {
+    "keywords": ["cargar", "carga", "combustible", "subir carga"],
     "options": {
+      "exact": true,
       "delay": 1000,
       "typing": true
     },
-    "actionName": "VALIDATE_USER_N8N"
-  },
-  "EXIT_FLOW": {
-    "keywords": ["exit", "salir", "cancelar"],
-    "messages": [
-      "👋 *Sesión cerrada con éxito.* Has salido del flujo actual. Puedes escribir cualquier cosa para una nueva validación."
-    ],
-    "actionName": "CLEAR_STATE"
-  },
-  "REGISTER_FLOW": {
-    "keywords": ["REGISTER_TRIGGER_EVENT"],
-    "steps": [
-      {
-        "type": "answer",
-        "text": "What is your name?",
-        "capture": true,
-        "actionName": "SAVE_NAME"
-      },
-      {
-        "type": "answer",
-        "text": "What is your phone number?",
-        "capture": true,
-        "actionName": "SAVE_PHONE"
-      },
-      {
-        "type": "answer",
-        "text": "¡Gracias! Tu información ha sido registrada."
-      }
-    ]
-  },
-  "DIESEL_FLOW": {
-    "keywords": ["subir carga", "cargar", "carga", "combustible"],
     "steps": [
       {
         "type": "action",
@@ -54,10 +19,23 @@
       }
     ]
   },
+  "EXIT_FLOW": {
+    "keywords": ["salir", "exit", "cancelar"],
+    "options": {
+        "exact": true
+    },
+    "messages": [
+      "👋 *Sesión cerrada con éxito.* Has salido del flujo actual."
+    ],
+    "actionName": "CLEAR_STATE"
+  },
   "DOC_FLOW": {
     "keywords": ["doc"],
+    "options": {
+        "exact": true
+    },
     "messages": [
-      "Puedes consultar la documentación técnica aquí:\n📄 https://builderbot.app/docs\n\n¿Deseas continuar?"
+      "Puedes consultar la documentación técnica aquí:\n📄 https://builderbot.app/docs"
     ]
   }
 }
