@@ -1,40 +1,27 @@
-# Image size ~ 400MB
-FROM node:21-alpine3.18 as builder
+# 🐳 DOCKERFILE - Diesel Bot (Optimizado para ARM64/Ampere)
+FROM node:25-slim
+
+# Instalamos dependencias para Sharp y manejo de imágenes
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
-ENV PNPM_HOME=/usr/local/bin
+# Copiamos archivos de dependencias primero para cachear capas
+COPY package*.json ./
+RUN npm install
 
+# Copiamos el resto del código
 COPY . .
 
-COPY package*.json *-lock.yaml ./
+# Construimos el proyecto (si usas TypeScript/Build)
+RUN npm run build || true
 
-RUN apk add --no-cache --virtual .gyp \
-        python3 \
-        make \
-        g++ \
-    && apk add --no-cache git \
-    && pnpm install && pnpm run build \
-    && apk del .gyp
+EXPOSE 3008
 
-FROM node:21-alpine3.18 as deploy
-
-WORKDIR /app
-
-ARG PORT
-ENV PORT $PORT
-EXPOSE $PORT
-
-COPY --from=builder /app/assets ./assets
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/*.json /app/*-lock.yaml ./
-
-RUN corepack enable && corepack prepare pnpm@latest --activate 
-ENV PNPM_HOME=/usr/local/bin
-
-RUN npm cache clean --force && pnpm install --production --ignore-scripts \
-    && addgroup -g 1001 -S nodejs && adduser -S -u 1001 nodejs \
-    && rm -rf $PNPM_HOME/.npm $PNPM_HOME/.node-gyp
-
+# Comando de arranque (Modo Producción o Desarrollo según .env)
 CMD ["npm", "start"]

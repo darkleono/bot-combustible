@@ -1,8 +1,6 @@
 # 🐳 DOCKER COMPOSE - Stack Oracle OCI Portainer
 # Ruta base en servidor: /DATA/AppData/Bots/bot-combustible/
 
-version: '3.8'
-
 services:
   bot-combustible:
     build: .
