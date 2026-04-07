@@ -246,13 +246,7 @@ const main = async () => {
             botStatus = '🟡 ESPERANDO ESCANEO QR'
             botIsReady = false
             botNeedsQR = true
-            
-            // 🖼️ NOTIFICACIÓN DE QR
-            try {
-                logger.info('📱 QR Generado. Escanea desde el Dashboard.', 'SYSTEM')
-            } catch (e) {
-                logger.error('Error al procesar QR', e)
-            }
+            logger.info('📱 Nuevo código QR generado. Ver en la raíz /', 'SYSTEM')
         })
 
         // 🌐 OTRAS RUTAS WEB
