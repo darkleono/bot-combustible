@@ -1,0 +1,59 @@
+{
+  "WELCOME_FLOW": {
+    "keywords": ["hi", "hello", "hola"],
+    "messages": [
+      "🙌 ¡Hola! Bienvenido al *{{BOT_NAME}}*.",
+      "{{BOT_DESC}}\n\n👉 Escribe *CARGAR* para subir un ticket de combustible.\n👉 Escribe *SALIR* si quieres cerrar tu sesión actual.\n👉 Escribe *doc* para ver la documentación técnica."
+    ],
+    "options": {
+      "delay": 1000,
+      "typing": true
+    }
+  },
+  "EXIT_FLOW": {
+    "keywords": ["exit", "salir", "cancelar"],
+    "actionName": "CLEAR_STATE"
+  },
+  "REGISTER_FLOW": {
+    "keywords": ["REGISTER_TRIGGER_EVENT"],
+    "steps": [
+      {
+        "type": "answer",
+        "text": "What is your name?",
+        "capture": true,
+        "actionName": "SAVE_NAME"
+      },
+      {
+        "type": "answer",
+        "text": "What is your phone number?",
+        "capture": true,
+        "actionName": "SAVE_PHONE"
+      },
+      {
+        "type": "answer",
+        "text": "¡Gracias! Tu información ha sido registrada."
+      }
+    ]
+  },
+  "DIESEL_FLOW": {
+    "keywords": ["subir carga", "cargar", "carga", "combustible"],
+    "steps": [
+      {
+        "type": "action",
+        "actionName": "VALIDATE_USER_N8N"
+      },
+      {
+        "type": "answer",
+        "text": "📷 Por favor, envíame la *foto del ticket* con tu unidad escrita a mano:\n_Recuerda que puedes escribir la unidad debajo de la foto_",
+        "capture": true,
+        "actionName": "PROCESS_TICKET_N8N"
+      }
+    ]
+  },
+  "DOC_FLOW": {
+    "keywords": ["doc"],
+    "messages": [
+      "Puedes consultar la documentación técnica aquí:\n📄 https://builderbot.app/docs\n\n¿Deseas continuar?"
+    ]
+  }
+}

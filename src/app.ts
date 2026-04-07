@@ -6,6 +6,7 @@ import { JsonFileDB as Database } from '@builderbot/database-json'
 import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import { logger } from './logger'
 import { ActionBridge } from './actions'
+import { registerDynamicFlows } from './flow-builder'
 
 const PORT = process.env.PORT ?? 3008
 
@@ -14,57 +15,13 @@ let botStatus = '🔴 DESCONECTADO'
 let botIsReady = false
 let botNeedsQR = false
 
-const registerFlow = addKeyword(utils.setEvent('REGISTER_FLOW'))
-    .addAnswer(`What is your name?`, { capture: true }, ActionBridge.SAVE_NAME)
-    .addAnswer('What is your phone number?', { capture: true }, ActionBridge.SAVE_PHONE)
-    .addAction(async (_, { flowDynamic, state }) => {
-        await flowDynamic(`${state.get('name')}, thanks for your information!: Your phone: ${state.get('phone')}`)
-    })
-
-const discordFlow = addKeyword('doc').addAnswer(
-    ['You can see the documentation here', '📄 https://builderbot.app/docs \n', 'Do you want to continue? *yes*'].join(
-        '\n'
-    ),
-    { capture: true },
-    async (ctx, { gotoFlow, flowDynamic }) => {
-        if (ctx.body.toLocaleLowerCase().includes('yes')) {
-            return gotoFlow(registerFlow)
-        }
-        await flowDynamic('Thanks!')
-        return
-    }
-)
-
-const welcomeFlow = addKeyword(['hi', 'hello', 'hola'])
-    .addAnswer(`🙌 ¡Hola! Bienvenido al *${process.env.BOT_NAME || 'Chatbot'}*.`)
-    .addAnswer(
-        [
-            `${process.env.BOT_DESC || 'Aquí tienes los comandos disponibles:'}`,
-            '👉 Escribe *CARGAR* para subir un ticket de combustible.',
-            '👉 Escribe *SALIR* si quieres cerrar tu sesión actual.',
-            '👉 Escribe *doc* para ver la documentación técnica.',
-        ].join('\n'),
-        { delay: 800 },
-        null,
-        [discordFlow, registerFlow]
-    )
-
-
-const dieselFlow = addKeyword<Provider, Database>(['subir carga', 'cargar', 'carga', 'combustible'])
-    .addAction(ActionBridge.VALIDATE_USER_N8N)
-    .addAnswer([
-        '📷 Por favor, envíame la *foto del ticket* con tu unidad escrita a mano:',
-        '_Recuerda que puedes escribir la unidad debajo de la foto_'
-    ], { capture: true }, ActionBridge.PROCESS_TICKET_N8N)
-
-const exitFlow = addKeyword<Provider, Database>(['salir', 'SALIR', 'Salir'])
-    .addAction(ActionBridge.CLEAR_STATE)
-
-
 const main = async () => {
     try {
-        logger.info('🚀 Preparing flows and provider...', 'SYSTEM')
-        const adapterFlow = createFlow([welcomeFlow, registerFlow, dieselFlow, exitFlow])
+        logger.info('🚀 Preparando motor dinámico y flujos JSON...', 'SYSTEM')
+        
+        // 🔄 CARGA DINÁMICA DE FLUJOS DESDE JSON
+        const dynamicFlows = registerDynamicFlows()
+        const adapterFlow = createFlow(dynamicFlows)
 
         // 🛠️ Lectura inteligente de la versión desde el .env
         const version: any = process.env.WAPP_VERSION
