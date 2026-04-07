@@ -1,16 +1,23 @@
 {
-  "DIESEL_FLOW": {
+  "INICIO": {
     "keywords": ["cargar", "carga", "combustible", "subir carga"],
     "options": {
       "exact": true,
-      "delay": 1000,
+      "delay": 500,
       "typing": true
     },
+    "actionName": "VALIDATE_USER_N8N",
     "steps": [
       {
-        "type": "action",
-        "actionName": "VALIDATE_USER_N8N"
-      },
+        "type": "answer",
+        "text": "✅ Identidad confirmada. Iniciando proceso de carga...",
+        "actionName": "GOTO_FUEL_PROCESS"
+      }
+    ]
+  },
+  "PROCESO_COMBUSTIBLE": {
+    "keywords": ["FUEL_PROCESS_TRIGGER_EVENT"],
+    "steps": [
       {
         "type": "answer",
         "text": "📷 Por favor, envíame la *foto del ticket* con tu unidad escrita a mano:\n_Recuerda que puedes escribir la unidad debajo de la foto_",
@@ -19,23 +26,23 @@
       }
     ]
   },
-  "EXIT_FLOW": {
+  "SALIDA": {
     "keywords": ["salir", "exit", "cancelar"],
     "options": {
-        "exact": true
+      "exact": true
     },
     "messages": [
-      "👋 *Sesión cerrada con éxito.* Has salido del flujo actual."
+      "👋 *Sesión cerrada.* Has salido del proceso actual."
     ],
     "actionName": "CLEAR_STATE"
   },
-  "DOC_FLOW": {
+  "AYUDA": {
     "keywords": ["doc"],
     "options": {
-        "exact": true
+      "exact": true
     },
     "messages": [
-      "Puedes consultar la documentación técnica aquí:\n📄 https://builderbot.app/docs"
+      "📄 Documentación técnica: https://builderbot.app/docs"
     ]
   }
 }

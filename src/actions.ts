@@ -1,5 +1,6 @@
 import fs from 'fs'
 import { logger } from './logger'
+import { getFlowFromRegistry } from './registry'
 
 // ⚡ ACTION BRIDGE: El puente entre el bot y los webhooks de n8n
 export const ActionBridge = {
@@ -145,8 +146,18 @@ export const ActionBridge = {
         }
 
         // 3. 🛡️ CERRAMOS EL CONTEXTO (Anti-Zombie)
-        // Esto le dice al bot que mate cualquier "espera" de otro flujo y quede listo para un nuevo saludo.
         return endFlow()
+    },
+
+    // 🌉 BRIDGE: Salto dinámico del Gateway al Proceso (Capas 1 -> 2)
+    GOTO_FUEL_PROCESS: async (ctx: any, { gotoFlow }: any) => {
+        logger.info(`🔀 Escalando: [${ctx.from}] a [Capa de Proceso: COMBUSTIBLE]`, 'ROUTING')
+        const targetFlow = getFlowFromRegistry('PROCESO_COMBUSTIBLE')
+        if (targetFlow) {
+            return await gotoFlow(targetFlow)
+        } else {
+            logger.error('No se encontró el flujo destino en el Registro Central.', null, 'ROUTING')
+        }
     }
 }
 
