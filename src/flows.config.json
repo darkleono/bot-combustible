@@ -1,29 +1,39 @@
 {
   "INICIO": {
-    "keywords": ["cargar", "carga", "combustible", "subir carga"],
+    "keywords": ["cargar", "carga", "combustible"],
+    "messages": [
+      "🔍 *Validando identidad...* Por favor, espera un momento."
+    ],
+    "actionName": "GATEWAY_FILTER"
+  },
+  "BIENVENIDA_EXITOSA": {
+    "keywords": ["EVENT_SUCCESS_AUTH"],
+    "messages": [
+      "✅ ¡Hola *{{name}}*! Identificado con éxito.",
+      "✅ Identidad confirmada. Iniciando proceso de carga..."
+    ],
     "options": {
-      "exact": true,
-      "delay": 500,
-      "typing": true
-    },
-    "actionName": "VALIDATE_USER_N8N",
-    "steps": [
-      {
-        "type": "answer",
-        "text": "✅ Identidad confirmada. Iniciando proceso de carga...",
-        "actionName": "GOTO_FUEL_PROCESS"
-      }
-    ]
+      "stepAction": "GOTO_FUEL_PROCESS"
+    }
+  },
+  "ACCESO_DENEGADO": {
+    "keywords": ["EVENT_FAIL_AUTH"],
+    "messages": [
+      "❌ *Acceso Denegado.* Tu número no está registrado en nuestro sistema de conductores.",
+      "Por favor, comunícate con el administrador si crees que esto es un error."
+    ],
+    "options": {
+      "stepAction": "GOTO_SALIDA"
+    }
   },
   "PROCESO_COMBUSTIBLE": {
-    "keywords": ["FUEL_PROCESS_TRIGGER_EVENT"],
-    "steps": [
-      {
-        "type": "answer",
-        "text": "📷 Por favor, envíame la *foto del ticket* con tu unidad escrita a mano:\n_Recuerda que puedes escribir la unidad debajo de la foto_",
-        "capture": true,
-        "actionName": "PROCESS_TICKET_N8N"
-      }
+    "keywords": ["EVENT_PROCESS_START"],
+    "options": {
+      "capture": true,
+      "stepAction": "PROCESS_TICKET_N8N"
+    },
+    "messages": [
+      "📷 Por favor, envíame la *foto del ticket* con tu unidad escrita a mano:\n_Recuerda que puedes escribir la unidad debajo de la foto_"
     ]
   },
   "SALIDA": {
@@ -35,14 +45,5 @@
       "👋 *Sesión cerrada.* Has salido del proceso actual."
     ],
     "actionName": "CLEAR_STATE"
-  },
-  "AYUDA": {
-    "keywords": ["doc"],
-    "options": {
-      "exact": true
-    },
-    "messages": [
-      "📄 Documentación técnica: https://builderbot.app/docs"
-    ]
   }
 }
