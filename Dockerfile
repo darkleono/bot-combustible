@@ -11,8 +11,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Instalamos ts-node globalmente para manejar ESM
-RUN npm install -g ts-node typescript
+# Instalamos tsx y typescript globalmente para manejar ESM si es necesario, 
+# aunque ya están en package.json
+RUN npm install -g tsx typescript
 
 COPY package*.json ./
 RUN npm install
@@ -22,5 +23,5 @@ COPY . .
 EXPOSE 3008
 
 # 🚀 EJECUCIÓN DIRECTA ESM:
-# Usamos las banderas necesarias para que Node no se pierda con las rutas de los módulos
-CMD ["node", "--loader", "ts-node/esm", "src/app.ts"]
+# Usamos tsx que es más robusto para Node 20+ y ESM directo
+CMD ["npx", "tsx", "src/app.ts"]
