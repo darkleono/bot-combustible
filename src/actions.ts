@@ -74,7 +74,7 @@ export const ActionBridge = {
                     from: cleanNumber,
                     image_base64: base64Image,
                     Nombre_imagen: `ticket_${cleanNumber}.jpg`,
-                    name: currentState?.name || 'Conductor',
+                    Nombre: currentState?.name || 'Conductor', // 🛠️ CAMBIADO: 'Operador' -> 'Nombre'
                     action: 'ocr'
                 }),
                 signal: controller.signal
