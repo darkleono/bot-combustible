@@ -1,7 +1,7 @@
-# 🐳 DOCKERFILE - Diesel Bot (Optimizado para ARM64/Ampere)
+# 🐳 DOCKERFILE - Diesel Bot (Ejecución Directa para OCI)
 FROM node:25-slim
 
-# Instalamos dependencias para Sharp y manejo de imágenes
+# Instalamos herramientas de construcción para Sharp y otros
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -11,17 +11,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copiamos archivos de dependencias primero para cachear capas
+# Instalamos ts-node globalmente
+RUN npm install -g ts-node typescript
+
 COPY package*.json ./
 RUN npm install
 
-# Copiamos el resto del código
 COPY . .
-
-# Construimos el proyecto (si usas TypeScript/Build)
-RUN npm run build || true
 
 EXPOSE 3008
 
-# Comando de arranque (Modo Producción o Desarrollo según .env)
-CMD ["npm", "start"]
+# Lanzamos el bot directamente desde el archivo TypeScript
+CMD ["ts-node", "src/app.ts"]
