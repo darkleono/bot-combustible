@@ -247,13 +247,17 @@ const main = async () => {
             botIsReady = false
             botNeedsQR = true
             
-            // 🖼️ GENERACIÓN AUTOMÁTICA DE IMAGEN QR PARA EL DASHBOARD
             try {
-                const qrcode = (await import('qrcode')).default
+                // Generar en terminal (Docker logs)
+                const terminal = require('qrcode-terminal')
+                terminal.generate(qr, { small: true })
+                
+                // Generar imagen (Dashboard Web)
+                const qrcode = require('qrcode')
                 await qrcode.toFile(join(process.cwd(), 'bot.qr.png'), qr)
-                logger.info('📱 QR Guardado para visualización en Dashboard.', 'SYSTEM')
+                logger.info('📱 QR generado y guardado. Escanea desde terminal o web.', 'SYSTEM')
             } catch (e) {
-                logger.error('Error al guardar imagen QR', e)
+                logger.error('Error al procesar QR', e)
             }
         })
 
