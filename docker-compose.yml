@@ -7,7 +7,7 @@ services:
     container_name: bot-combustible
     restart: always
     ports:
-      - "3008:3008"
+      - "8088:8088"
     volumes:
       # 📚 PERSISTENCIA DE SESIÓN
       - "/DATA/AppData/Bots/bot-combustible/auth:/app/bot_sessions"
@@ -21,7 +21,10 @@ services:
       # 📝 PERSISTENCIA DE REGISTROS
       - "/DATA/AppData/Bots/bot-combustible/logs:/app/logs"
       
+    env_file:
+      - .env
+
     environment:
       - NODE_ENV=production
-      - PORT=3008
+      - PORT=8088
       - TZ=America/Mexico_City
