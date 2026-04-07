@@ -23,10 +23,11 @@ const main = async () => {
         const dynamicFlows = registerDynamicFlows()
         const adapterFlow = createFlow(dynamicFlows)
 
-        // 🛠️ Lectura inteligente de la versión desde el .env
-        const version: any = process.env.WAPP_VERSION
-            ? process.env.WAPP_VERSION.split(',').map(Number)
-            : [2, 3000, 1015901307]
+        // 🛠️ Configuración de versión de WhatsApp (Compatibilidad OCI/Rollup)
+        let version: any = [2, 3000, 1015901307];
+        if (process.env.WAPP_VERSION) {
+            version = process.env.WAPP_VERSION.split(',').map(Number);
+        }
 
         const isDebug = process.env.WAPP_DEBUG === 'true'
         logger.info(`Starting bot in ${isDebug ? '\x1b[33mDEBUG\x1b[0m' : '\x1b[32mSILENT\x1b[0m'} technical mode.`, 'SYSTEM')
