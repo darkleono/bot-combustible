@@ -8,7 +8,8 @@
     "options": {
       "delay": 1000,
       "typing": true
-    }
+    },
+    "actionName": "VALIDATE_USER_N8N"
   },
   "EXIT_FLOW": {
     "keywords": ["exit", "salir", "cancelar"],

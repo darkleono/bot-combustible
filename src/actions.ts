@@ -131,9 +131,22 @@ export const ActionBridge = {
         logger.info(`Teléfono guardado: ${ctx.body}`, 'STATE')
     },
 
-    CLEAR_STATE: async (_: any, { state }: any) => {
+    CLEAR_STATE: async (_: any, { state, flowDynamic, flowData, endFlow }: any) => {
+        // 1. Limpiamos el estado primero (State First)
         await state.clear()
         logger.success('Sesión y estado limpiados.', 'SESSION')
+        
+        // 2. Cargamos dinámicamente los mensajes desde el objeto que nos pasó el motor
+        if (flowData && flowData.messages) {
+            for (const msg of flowData.messages) {
+                await new Promise(resolve => setTimeout(resolve, 500))
+                await flowDynamic(msg)
+            }
+        }
+
+        // 3. 🛡️ CERRAMOS EL CONTEXTO (Anti-Zombie)
+        // Esto le dice al bot que mate cualquier "espera" de otro flujo y quede listo para un nuevo saludo.
+        return endFlow()
     }
 }
 

@@ -34,13 +34,18 @@ export const registerDynamicFlows = () => {
                 const actionFn = (ActionBridge as any)[flowData.actionName]
                 if (actionFn) {
                     currentFlow = currentFlow.addAction(async (ctx, helpers) => {
-                        await actionFn(ctx, helpers)
+                        // 🤖 Pasamos flowData para que la acción sea "Data-Driven"
+                        await actionFn(ctx, { ...helpers, flowData })
                     })
                 }
             }
 
             // 3. Cargamos Mensajes Simples
-            if (flowData.messages && Array.isArray(flowData.messages)) {
+            // 🛡️ EXCEPCIÓN: Si la acción es CLEAR_STATE, no los registramos aquí
+            // Esto evita el "Double Posting" porque la acción se encargará de enviarlos
+            const skipAutoMessages = flowData.actionName === 'CLEAR_STATE'
+            
+            if (!skipAutoMessages && flowData.messages && Array.isArray(flowData.messages)) {
                 flowData.messages.forEach((msg: string, index: number) => {
                     const options = flowData.options || {}
                     
