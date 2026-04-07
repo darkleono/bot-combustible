@@ -24,7 +24,7 @@ const main = async () => {
         const adapterFlow = createFlow(dynamicFlows)
 
         // 🛠️ Configuración de versión de WhatsApp (Ajuste para OCI Error 405)
-        let version: any = [2, 3000, 1017530745]; 
+        let version: any = [2, 3000, 1036784162]; 
         if (process.env.WAPP_VERSION) {
             version = process.env.WAPP_VERSION.split(',').map(Number);
         }
