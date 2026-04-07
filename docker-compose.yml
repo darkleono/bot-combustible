@@ -1,0 +1,28 @@
+# 🐳 DOCKER COMPOSE - Stack Oracle OCI Portainer
+# Ruta base en servidor: /DATA/AppData/Bots/bot-combustible/
+
+version: '3.8'
+
+services:
+  bot-combustible:
+    build: .
+    container_name: bot-combustible
+    restart: always
+    ports:
+      - "3008:3008"
+    volumes:
+      # 📚 PERSISTENCIA DE SESIÓN (QR escaneado una sola vez)
+      - "/DATA/AppData/Bots/bot-combustible/auth:/app/.wwebjs_auth"
+      # o para Baileys (si usa bot.db):
+      - "/DATA/AppData/Bots/bot-combustible/db:/app/bot.db"
+      
+      # ⚙️ PERSISTENCIA DE CONFIGURACIÓN (Editables desde CasaOS)
+      - "/DATA/AppData/Bots/bot-combustible/config/flows.config.json:/app/src/flows.config.json"
+      
+      # 📝 PERSISTENCIA DE REGISTROS (Auditoría de fuel/OCR)
+      - "/DATA/AppData/Bots/bot-combustible/logs:/app/logs"
+      
+    environment:
+      - NODE_ENV=production
+      - PORT=3008
+      - TZ=America/Mexico_City
