@@ -2,7 +2,7 @@ import fs from 'fs'
 import { logger } from './logger'
 import { getFlowFromRegistry } from './registry'
 
-// ⚡ ACTION BRIDGE v2.1: El Puente de Oro (Optimizado y Sin Conflictos)
+// ⚡ ACTION BRIDGE v2.2: Control Total de Mensajería y OCR
 export const ActionBridge = {
 
     GATEWAY_FILTER: async (ctx: any, { state, gotoFlow }: any) => {
@@ -37,25 +37,28 @@ export const ActionBridge = {
                 return await gotoFlow(getFlowFromRegistry('BIENVENIDA_EXITOSA'))
             } else {
                 logger.error(`Cerebro: Usuario No Autorizado.`, null, 'ROUTING')
-                return await gotoFlow(getFlowFromRegistry('ACCESO_DENEGADO'))
+                const flow = getFlowFromRegistry('ACCESO_DENEGADO')
+                if (flow) return await gotoFlow(flow)
             }
         } catch (error: any) {
             clearTimeout(timeoutId)
             logger.error(`❌ [RED]: Fallo la llamada: ${error.message}`, error, 'NETWORK')
-            return await gotoFlow(getFlowFromRegistry('ACCESO_DENEGADO'))
+            const flow = getFlowFromRegistry('ACCESO_DENEGADO')
+            if (flow) return await gotoFlow(flow)
         }
     },
 
-    PROCESS_TICKET_N8N: async (ctx: any, { state, flowDynamic, provider, gotoFlow }: any) => {
+    PROCESS_TICKET_N8N: async (ctx: any, { state, flowDynamic, provider, endFlow }: any) => {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 45000) 
+        const timeoutId = setTimeout(() => controller.abort(), 60000) // 1 Minuto para tickets complejos
 
         try {
-            logger.info(`📸 [OCR]: Obteniendo imagen de WhatsApp...`, 'OCR')
+            // 📝 PASO 1: Mensaje de espera inmediato
+            await flowDynamic("⌛ *Permíteme procesar tu imagen...* Esto tardará unos segundos mientras extraigo la información del ticket.")
             
+            logger.info(`📸 [OCR]: Obteniendo imagen real...`, 'OCR')
             const fileResult = await provider.saveFile(ctx)
             
-            // 🛠️ FIX DEFINITIVO: Leemos el archivo físico si es una ruta (string)
             const base64Image = (typeof fileResult === 'string') 
                 ? fs.readFileSync(fileResult).toString('base64') 
                 : fileResult.toString('base64')
@@ -63,6 +66,7 @@ export const ActionBridge = {
             const currentState = await (state as any).getMyState()
             const cleanNumber = ctx.from.split('@')[0]
 
+            // 📝 PASO 2: Llamada a n8n
             const response = await fetch('https://n8n2.dmls.app/webhook/combustible-bot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -80,31 +84,39 @@ export const ActionBridge = {
             const ocrJson = await response.json()
             const finalData = Array.isArray(ocrJson) ? ocrJson[0] : ocrJson
 
-            const botMsg = finalData?.message || finalData?.Mensaje || finalData?.mensaje || `✅ Ticket registrado.`
+            // 📝 PASO 3: Mostrar respuesta del OCR
+            const botMsg = finalData?.message || finalData?.Mensaje || finalData?.mensaje || `✅ Ticket registrado exitosamente.`
             await flowDynamic(botMsg)
 
-            return await gotoFlow(getFlowFromRegistry('SALIDA'))
+            // 📝 PASO 4: CIERRE ATÓMICO (Sin saltos a SALIDA para evitar duplicados)
+            await (state as any).clear()
+            logger.success('Sistema: Sesión Finalizada tras OCR.', 'SESSION')
+            await flowDynamic("👋 *Sesión cerrada.* Tu proceso ha terminado con éxito.")
+            return endFlow()
             
         } catch (error: any) {
             clearTimeout(timeoutId)
             logger.error(`❌ [OCR]: Falló el ticket`, error, 'OCR')
-            await flowDynamic("⚠️ Error al procesar tu foto. Intenta de nuevo.")
-            return await gotoFlow(getFlowFromRegistry('SALIDA'))
+            await flowDynamic("⚠️ Error al procesar tu foto. Por favor, asegúrate de que sea legible.")
+            await (state as any).clear()
+            return endFlow()
         }
     },
 
-    CLEAR_STATE: async (_: any, { state, endFlow }: any) => {
+    CLEAR_STATE: async (_: any, { state, flowDynamic, endFlow }: any) => {
         await (state as any).clear()
-        logger.success('Sistema: Memoria Limpia.', 'SESSION')
+        logger.success('Sistema: Memoria Limpia Manual.', 'SESSION')
+        await flowDynamic("👋 *Sesión cerrada.* Has salido del proceso actual.")
         return endFlow()
     },
 
-    GOTO_FUEL_PROCESS: async (ctx: any, { gotoFlow, state }: any) => {
-        logger.info(`⚡ [TRANSICIÓN]: Cámara Lista.`, 'ROUTING')
-        return await gotoFlow(getFlowFromRegistry('PROCESO_COMBUSTIBLE'))
+    GOTO_FUEL_PROCESS: async (ctx: any, { gotoFlow }: any) => {
+        const flow = getFlowFromRegistry('PROCESO_COMBUSTIBLE')
+        if (flow) return await gotoFlow(flow)
     },
 
     GOTO_SALIDA: async (ctx: any, { gotoFlow }: any) => {
-        return await gotoFlow(getFlowFromRegistry('SALIDA'))
+        const flow = getFlowFromRegistry('SALIDA')
+        if (flow) return await gotoFlow(flow)
     }
 }

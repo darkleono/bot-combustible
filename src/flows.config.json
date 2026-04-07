@@ -41,9 +41,6 @@
     "options": {
       "exact": true
     },
-    "messages": [
-      "👋 *Sesión cerrada.* Has salido del proceso actual."
-    ],
     "actionName": "CLEAR_STATE"
   }
 }
