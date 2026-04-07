@@ -36,7 +36,11 @@ const main = async () => {
             version,
             writeLog: isDebug
         })
-        const adapterDB = new Database({ filename: 'db.json' })
+        
+        // 💾 BASE DE DATOS LOCAL
+        const adapterDB = new Database({
+            filename: join(process.cwd(), 'database', 'db.json')
+        })
 
         // 🛡️ INTERCEPTOR GUI & CONFIG (PRIORIDAD ALTA)
         const guiInterceptor = (req, res, next) => {

@@ -13,7 +13,7 @@ services:
       - "/DATA/AppData/Bots/bot-combustible/auth:/app/bot_sessions"
       
       # 💾 BASE DE DATOS
-      - "/DATA/AppData/Bots/bot-combustible/db/db.json:/app/db.json"
+      - "/DATA/AppData/Bots/bot-combustible/db:/app/database"
       
       # ⚙️ PERSISTENCIA DE CONFIGURACIÓN
       - "/DATA/AppData/Bots/bot-combustible/config/flows.config.json:/app/src/flows.config.json"
