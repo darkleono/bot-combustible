@@ -8,6 +8,11 @@ import { logger } from './logger'
 
 const PORT = process.env.PORT ?? 3008
 
+// 🧠 ESTADOS GLOBALES DEL BOT (Para el Dashboard)
+let botStatus = '🔴 DESCONECTADO'
+let botIsReady = false
+let botNeedsQR = false
+
 const registerFlow = addKeyword(utils.setEvent('REGISTER_FLOW'))
     .addAnswer(`What is your name?`, { capture: true }, async (ctx, { state }) => {
         await state.update({ name: ctx.body })
@@ -197,12 +202,17 @@ const main = async () => {
         const adapterDB = new Database({ filename: 'db.json' })
 
         logger.info('🤖 Creating bot instance...', 'SYSTEM')
+        // 🤖 INICIALIZACIÓN DEL BOT
         const { handleCtx, httpServer } = await createBot({
             flow: adapterFlow,
             provider: adapterProvider,
             database: adapterDB,
+        }).catch(err => {
+            logger.error('FALLO AL CREAR LA INSTANCIA DEL BOT', err, 'SYSTEM')
+            throw err
         })
 
+        // 🔗 REGISTRO DE RUTAS NATIVAS
         adapterProvider.server.post(
             '/v1/messages',
             handleCtx(async (bot, req, res) => {
@@ -241,9 +251,109 @@ const main = async () => {
                 return res.end(JSON.stringify({ status: 'ok', blacklist }))
             })
         )
-        // 🌐 WEB DASHBOARD & QR ROUTES
+        // 📡 MONITOREO DE EVENTOS PARA EL DASHBOARD
+        adapterProvider.on('ready', () => {
+            botStatus = '🟢 VINCULADO Y ACTIVO'
+            botIsReady = true
+            botNeedsQR = false
+            logger.info('✅ Conexión con WhatsApp exitosa. Dashboard actualizado.', 'SYSTEM')
+        })
+
+        adapterProvider.on('auth_failure', (error) => {
+            botStatus = '🔴 ERROR DE SESIÓN (REINTENTANDO)'
+            botIsReady = false
+            logger.error('❌ Error de autenticación en WhatsApp.', error, 'SYSTEM')
+        })
+
+        adapterProvider.on('qr', (qr) => {
+            botStatus = '🟡 ESPERANDO ESCANEO QR'
+            botIsReady = false
+            botNeedsQR = true
+            logger.info('📱 Nuevo código QR generado. Ver en la raíz /', 'SYSTEM')
+        })
+
+        // 🛡️ INTERCEPTOR GLOBAL DE RAÍZ (Middleware)
+        // Esto evita que Builderbot intercepte el "/" y nos deje ver nuestras Cards
+        adapterProvider.server.use((req, res, next) => {
+            if (req.url === '/' || req.url === '/dashboard') {
+                const qrPath = join(process.cwd(), 'bot.qr.png')
+                const needsQR = fs.existsSync(qrPath) && !botIsReady
+                const currentStatus = botIsReady ? '🟢 VINCULADO Y ACTIVO' : (botNeedsQR ? '🟡 ESPERANDO ESCANEO QR' : botStatus)
+                const isOnline = botIsReady && !needsQR
+
+                const html = `
+                <!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Cloud Core - ${process.env.BOT_NAME}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+                    <style>
+                        body { font-family: 'Inter', sans-serif; background: #020617; color: #f8fafc; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+                        .container { max-width: 900px; width: 95%; padding: 2rem; }
+                        .header { text-align: center; margin-bottom: 3rem; }
+                        .bot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+                        .bot-card { background: #0f172a; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 4px 50px rgba(0,0,0,0.6); border: 1px solid #1e293b; position: relative; overflow: hidden; }
+                        .bot-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: ${isOnline ? '#10b981' : '#f59e0b'}; }
+                        .status-badge { display: inline-block; padding: 0.5rem 1rem; border-radius: 2rem; background: ${isOnline ? '#064e3b' : '#451a03'}; color: ${isOnline ? '#34d399' : '#fcd34d'}; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 1px; }
+                        h1 { color: white; margin: 0 0 0.5rem 0; font-size: 1.8rem; font-weight: 800; }
+                        .desc { color: #64748b; font-size: 0.9rem; margin-bottom: 2rem; line-height: 1.6; }
+                        .qr-box { background: #020617; padding: 1.5rem; border-radius: 1rem; border: 1px dashed #38bdf8; margin-top: 1rem; }
+                        .btn { display: inline-block; background: #38bdf8; color: #020617; padding: 0.8rem 2rem; border-radius: 0.75rem; text-decoration: none; font-weight: 800; transition: all 0.2s; font-size: 0.85rem; }
+                        .btn:hover { background: #7dd3fc; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(56, 189, 248, 0.2); }
+                        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; border-top: 1px solid #1e293b; padding-top: 1.5rem; }
+                        .info-item label { display: block; color: #475569; font-size: 0.65rem; text-transform: uppercase; font-weight: 800; margin-bottom: 0.2rem; }
+                        .info-item span { color: #cbd5e1; font-weight: 600; font-size: 0.85rem; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h2 style="margin:0; opacity: 0.5; font-size: 0.7rem; letter-spacing: 3px; font-weight: 800;">BUILDERBOT CLOUD CORE v5</h2>
+                        </div>
+                        <div class="bot-grid">
+                            <div class="bot-card">
+                                <div class="status-badge">${currentStatus}</div>
+                                <h1>${process.env.BOT_NAME}</h1>
+                                <p class="desc">${process.env.BOT_DESC}</p>
+                                
+                                ${needsQR ? `
+                                <div class="qr-box">
+                                    <p style="color: #38bdf8; font-size: 0.8rem; margin-bottom: 1rem;">⚠️ ACCIÓN REQUERIDA: VINCULACIÓN PENDIENTE</p>
+                                    <a href="/qr" target="_blank" class="btn">ESCANEAME</a>
+                                </div>
+                                ` : `
+                                <div style="background: #064e3b22; padding: 1.2rem; border-radius: 1rem; border: 1px solid #065f4633; display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 1.2rem;">🛡️</span>
+                                    <span style="color: #34d399; font-size: 0.85rem; font-weight: 600;">Sistema operando sin errores.</span>
+                                </div>
+                                `}
+
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <label>Identidad</label>
+                                        <span>Diesel-Core-01</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Puerto</label>
+                                        <span>localhost:${PORT}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="text-align: center; margin-top: 3rem; color: #334155; font-size: 0.75rem; font-weight: 600;">© 2026 Grupo Ortiz | Advanced Automation Service</p>
+                    </div>
+                </body>
+                </html>`
+                res.writeHead(200, { 'Content-Type': 'text/html' })
+                return res.end(html)
+            }
+            next()
+        })
+
+        // 🌐 OTRAS RUTAS WEB
         if (process.env.EXPOSE_WEB_UI === 'true') {
-            // Ruta para ver el QR directamente en el navegador
             adapterProvider.server.get('/qr', (req, res) => {
                 const qrPath = join(process.cwd(), 'bot.qr.png')
                 if (fs.existsSync(qrPath)) {
@@ -251,59 +361,39 @@ const main = async () => {
                     return res.end(fs.readFileSync(qrPath))
                 }
                 res.writeHead(404)
-                return res.end('QR no disponible. El bot podria estar ya conectado.')
-            })
-
-            // Dashboard minimalista con info del proyecto
-            adapterProvider.server.get('/dashboard', (req, res) => {
-                const html = `
-                <!DOCTYPE html>
-                <html lang="es">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Dashboard - ${process.env.BOT_NAME}</title>
-                    <style>
-                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; border: 1px solid #334155; }
-                        h1 { color: #38bdf8; margin-bottom: 0.5rem; }
-                        p { color: #94a3b8; }
-                        .status { display: inline-block; padding: 0.5rem 1rem; border-radius: 2rem; background: #065f46; color: #34d399; font-weight: bold; margin-bottom: 1rem; }
-                        .btn { background: #38bdf8; color: #0f172a; padding: 0.75rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: bold; transition: background 0.3s; }
-                        .btn:hover { background: #0ea5e9; }
-                    </style>
-                </head>
-                <body>
-                    <div class="card">
-                        <div class="status">● BOT ONLINE</div>
-                        <h1>${process.env.BOT_NAME}</h1>
-                        <p>${process.env.BOT_DESC}</p>
-                        <hr style="border-color: #334155; margin: 1.5rem 0;">
-                        <p>Escanea el QR si no estas conectado:</p>
-                        <a href="/qr" target="_blank" class="btn">Ver Código QR</a>
-                    </div>
-                </body>
-                </html>`
-                res.writeHead(200, { 'Content-Type': 'text/html' })
-                return res.end(html)
+                return res.end('QR no generado.')
             })
             
-            logger.info(`🌐 Web Dashboard exposed at http://localhost:${PORT}/dashboard`, 'SYSTEM')
+            logger.info(`🌐 Global Interface enabled at: http://localhost:${PORT}/`, 'SYSTEM')
         }
 
-        logger.info(`📡 Server up on port ${PORT}...`, 'SYSTEM')
-        httpServer(+PORT)
+        // 🚀 ARRANQUE FINAL DEL SERVIDOR
+        try {
+            logger.info(`📡 Arrancando servidor en puerto ${PORT}...`, 'SYSTEM')
+            httpServer(+PORT)
+        } catch (serverError) {
+            logger.error('ERROR AL INICIAR HTTP SERVER (Puerto ocupado?)', serverError, 'FATAL')
+        }
 
     } catch (error) {
-        logger.error('CRITICAL ERROR IN MAIN', error, 'SYSTEM')
+        // 🚨 EL "SALVAVIDAS" DE ERRORES CRÍTICOS
+        logger.error('--- ERROR CRÍTICO EN MAIN ---', error, 'FATAL')
+        if (error instanceof Error) {
+            console.error(error.stack)
+        }
     }
 }
 
+// 🚦 MANEJO DE ERRORES GLOBALES DEL PROCESO
 process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Critical Error', error, 'FATAL')
+    logger.error('Uncaught Exception detectada!', error, 'FATAL')
+    console.error(error.stack)
+    process.exit(1)
 })
 
 process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Promise Rejection', reason, 'FATAL')
+    logger.error('Promesa no manejada (Unhandled Rejection)', reason, 'FATAL')
+    console.error(reason instanceof Error ? reason.stack : reason)
 })
 
 main()
