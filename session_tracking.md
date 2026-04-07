@@ -8,32 +8,42 @@
 - **Objetivo:** Despliegue en Oracle Cloud Infrastructure (OCI - Ampere ARM64).
 
 ## 🆘 Estado de Error y Resolución (Despliegue OCI)
-Durante el despliegue en Ubuntu/Oracle se encontraron los siguientes bloqueos críticos:
+Durante el despliegue en Ubuntu/Oracle se resolvieron los siguientes bloqueos:
 
-1. **Error de Montura Docker (Solucionado):** 
-   - *Error:* Docker creó una carpeta en lugar de un archivo para `flows.config.json`. 
-   - *Solución:* Se corrigió la lógica de volúmenes y se procedió a la limpieza manual de carpetas fantasma en el host.
+1. **Error de Conexión 405 (Solucionado):** 
+   - *Error:* WhatsApp rechazaba la conexión por versión obsoleta.
+   - *Solución:* Se actualizó la versión a `2,3000,1036784162` en el `.env`.
 
-2. **Rollup Build Failure (Solucionado):** 
-   - *Error:* `RollupError: Expected a semicolon`. El compilador de producción fallaba al parsear TypeScript en `app.ts`.
-   - *Solución:* Se simplificó la lógica de detección de versión de WhatsApp para eliminar ambigüedades de tipos y se cambió la estrategia de build.
+2. **Invisibilidad del QR (Solucionado):** 
+   - *Error:* El Dashboard mostraba "Not Found" y la consola no pintaba el QR.
+   - *Solución:* Implementación de `qrcode-terminal` y guardado automático de `bot.qr.png` en la raíz para servirlo vía web.
 
-3. **ESM Module Not Found (Solucionado):** 
-   - *Error:* `ERR_MODULE_NOT_FOUND` al importar archivos locales ( logger, flows, etc) en el entorno de OCI debido a la ausencia de extensiones `.js` en un proyecto `type: module`.
-   - *Solución:* Implementación del cargador ESM nativo de Node.js (`--loader ts-node/esm`) en el Dockerfile para ejecución directa.
+3. **Duplicidad de Rutas DB (Solucionado):** 
+   - *Error:* `ENOENT: /app/app/database/db.json` por redundancia de `process.cwd()`.
+   - *Solución:* Simplificación a rutas relativas para el contenedor Docker.
+
+4. **Bloqueo EBUSY en DB (Solucionado):** 
+   - *Error:* Fallo al renombrar `db.json.tmp`.
+   - *Solución:* Montaje de carpeta `/app/database` en lugar de archivo individual en `docker-compose`.
+
+## 🚀 Éxito de Producción (07/04/2026)
+- **Número Vinculado:** Confirmado el enlace con el número de producción.
+- **Flujo Completo:** Verificado el ciclo: `Validar -> OCR Gemini -> Carga -> Cierre`.
+- **Acceso Web:** Dashboard y QR funcionando en `IP:8088`.
 
 ## Arquitectura de Despliegue Final (v1.4.1)
-- **Motor Docker:** Estrategia de Ejecución Directa (No Build/Rollup).
-- **Cargador:** `ts-node/esm` (Resuelve rutas dinámicamente en tiempo de ejecución).
+- **Motor Docker:** Estrategia de Ejecución Directa via `tsx`.
+- **Cargador:** `tsx src/app.ts` (Máxima compatibilidad con ESM en Node 25).
 - **Persistencia en OCI:** 
     - `/DATA/AppData/Bots/bot-combustible/auth` -> Sesión de WA.
-    - `/DATA/AppData/Bots/bot-combustible/config` -> `flows.config.json` editable.
-    - `/DATA/AppData/Bots/bot-combustible/logs` -> Auditoría.
+    - `/DATA/AppData/Bots/bot-combustible/db` -> Base de Datos Permanente.
+    - `/DATA/AppData/Bots/bot-combustible/config/flows.config.json` -> Configuración.
 
 ## Instrucciones para el VPS (OCI Oracle)
 Para poner el bot en línea después de este commit:
-1. `sudo git pull origin feature/cloud-mimic-v1`
-2. `sudo docker compose up -d --build`
+1. `sudo git fetch origin`
+2. `sudo git reset --hard origin/feature/cloud-mimic-v1`
+3. `sudo docker compose up -d --build`
 
 ---
-**Nota Técnica:** El bot se ejecuta ahora de forma híbrida: usa la potencia de Node.js 25 pero gestiona los archivos `.ts` en caliente gracias al loader ESM, evitando el "infierno de las extensiones" de Rollup en OCI.
+**Nota Técnica:** El bot se ejecuta ahora de forma optimizada: `PORT=8088` habilitado y `.env` sincronizado automáticamente con el contenedor.
