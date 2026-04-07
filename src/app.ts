@@ -246,7 +246,15 @@ const main = async () => {
             botStatus = '🟡 ESPERANDO ESCANEO QR'
             botIsReady = false
             botNeedsQR = true
-            logger.info('📱 Nuevo código QR generado. Ver en la raíz /', 'SYSTEM')
+            
+            // 🖼️ GENERACIÓN AUTOMÁTICA DE IMAGEN QR PARA EL DASHBOARD
+            try {
+                const qrcode = require('qrcode')
+                qrcode.toFile(join(process.cwd(), 'bot.qr.png'), qr)
+                logger.info('📱 QR Guardado para visualización en Dashboard.', 'SYSTEM')
+            } catch (e) {
+                logger.error('Error al guardar imagen QR', e)
+            }
         })
 
         // 🌐 OTRAS RUTAS WEB
