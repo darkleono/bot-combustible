@@ -81,18 +81,22 @@ const main = async () => {
 
             // 🏠 RUTA: DASHBOARD PRINCIPAL
             if (url === '/' || url === '/dashboard') {
-                const qrPath = join(projectRoot, 'bot.qr.png')
+                const qrPath = join(process.cwd(), 'bot.qr.png')
                 const needsQR = fs.existsSync(qrPath) && !botIsReady
                 const currentStatus = botIsReady ? '🟢 VINCULADO Y ACTIVO' : (botNeedsQR ? '🟡 ESPERANDO ESCANEO QR' : botStatus)
                 const isOnline = botIsReady && !needsQR
                 
+                // Limpiar variables de entorno para evitar undefined o comillas
+                const botName = (process.env.BOT_NAME || 'Diesel Bot').replace(/"/g, '')
+                const botDesc = (process.env.BOT_DESC || 'Asistente de Carga').replace(/"/g, '')
+
                 const html = `
                 <!DOCTYPE html>
                 <html lang="es">
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Cloud Core - ${process.env.BOT_NAME}</title>
+                    <title>Cloud Core - ${botName}</title>
                     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
                     <style>
                         body { font-family: 'Inter', sans-serif; background: #020617; color: #f8fafc; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -107,7 +111,6 @@ const main = async () => {
                         .nav-links { margin-top: 1.5rem; display: flex; gap: 1rem; }
                         .btn { display: inline-block; background: #38bdf8; color: #020617; padding: 0.8rem 2rem; border-radius: 0.75rem; text-decoration: none; font-weight: 800; transition: all 0.2s; font-size: 0.85rem; }
                         .btn:hover { background: #7dd3fc; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(56, 189, 248, 0.2); }
-                        .qr-box { background: #020617; padding: 1.5rem; border-radius: 1rem; border: 1px dashed #38bdf8; margin-top: 1rem; }
                         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; border-top: 1px solid #1e293b; padding-top: 1.5rem; }
                         .info-item label { display: block; color: #475569; font-size: 0.65rem; text-transform: uppercase; font-weight: 800; margin-bottom: 0.2rem; }
                         .info-item span { color: #cbd5e1; font-weight: 600; font-size: 0.85rem; }
@@ -121,8 +124,8 @@ const main = async () => {
                         <div class="bot-grid">
                             <div class="bot-card">
                                 <div class="status-badge">${currentStatus}</div>
-                                <h1>${process.env.BOT_NAME}</h1>
-                                <p class="desc">${process.env.BOT_DESC}</p>
+                                <h1>${botName}</h1>
+                                <p class="desc">${botDesc}</p>
                                 
                                 <div class="nav-links">
                                     <a href="/builder" class="btn">FLOW BUILDER 🛠️</a>
@@ -136,7 +139,7 @@ const main = async () => {
                                     </div>
                                     <div class="info-item">
                                         <label>Puerto</label>
-                                        <span>localhost:${PORT}</span>
+                                        <span>localhost:${process.env.PORT || 3008}</span>
                                     </div>
                                 </div>
                             </div>
@@ -228,6 +231,9 @@ const main = async () => {
             botIsReady = true
             botNeedsQR = false
             logger.info('✅ Conexión con WhatsApp exitosa. Dashboard actualizado.', 'SYSTEM')
+            if (fs.existsSync(join(process.cwd(), 'bot.qr.png'))) {
+                fs.unlinkSync(join(process.cwd(), 'bot.qr.png'))
+            }
         })
 
         adapterProvider.on('auth_failure', (error) => {
@@ -240,7 +246,13 @@ const main = async () => {
             botStatus = '🟡 ESPERANDO ESCANEO QR'
             botIsReady = false
             botNeedsQR = true
-            logger.info('📱 Nuevo código QR generado. Ver en la raíz /', 'SYSTEM')
+            
+            // 🖼️ NOTIFICACIÓN DE QR
+            try {
+                logger.info('📱 QR Generado. Escanea desde el Dashboard.', 'SYSTEM')
+            } catch (e) {
+                logger.error('Error al procesar QR', e)
+            }
         })
 
         // 🌐 OTRAS RUTAS WEB
