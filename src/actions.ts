@@ -131,10 +131,9 @@ export const ActionBridge = {
         logger.info(`Teléfono guardado: ${ctx.body}`, 'STATE')
     },
 
-    CLEAR_STATE: async (_: any, { flowDynamic, state }: any) => {
+    CLEAR_STATE: async (_: any, { state }: any) => {
         await state.clear()
-        logger.info('Sesión y estado limpiados.', 'SESSION')
-        await flowDynamic('👋 *Sesión cerrada con éxito.* Has salido del flujo actual. Puedes escribir cualquier cosa para una nueva validación.')
+        logger.success('Sesión y estado limpiados.', 'SESSION')
     }
 }
 

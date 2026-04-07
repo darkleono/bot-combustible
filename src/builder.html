@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Builder - {{BOT_NAME}}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020617;
+            --card: #0f172a;
+            --accent: #38bdf8;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* SIDEBAR (Lista de Flujos) */
+        .sidebar {
+            width: 300px;
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+        }
+
+        .sidebar-header {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h2 { font-size: 1.2rem; margin: 0; font-weight: 800; }
+
+        .flow-item {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .flow-item:hover { background: #1e293b; }
+        .flow-item.active { background: #075985; border-color: var(--accent); }
+        .flow-item span { font-size: 0.85rem; font-weight: 700; }
+        .flow-item small { font-size: 0.7rem; color: var(--text-dim); }
+
+        /* EDITOR (Zona de trabajo) */
+        .main-editor {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            background: radial-gradient(circle at top left, #0f172a22, transparent);
+        }
+
+        .editor-card {
+            background: var(--card);
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            border: 1px solid var(--border);
+            max-width: 800px;
+            margin: 0 auto;
+            display: none;
+        }
+
+        .editor-card.active { display: block; animation: slideUp 0.3s ease-out; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .field { margin-bottom: 1.5rem; }
+        label { display: block; font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-bottom: 0.5rem; }
+        
+        input, textarea, select {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+
+        textarea { min-height: 120px; line-height: 1.5; resize: vertical; }
+
+        .actions {
+            margin-top: 3rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            border: none;
+        }
+
+        .btn-primary { background: var(--accent); color: var(--bg); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(56, 189, 248, 0.2); }
+        .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+
+        /* HEADER SUPERIOR */
+        .nav {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* TOAST NOTIFICATION */
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #10b981;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-weight: 800;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast">✅ Configuración Guardada</div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>Flujos</h2>
+            <div style="font-size: 0.6rem; background: #064e3b; color: #34d399; padding: 2px 6px; border-radius: 4px; font-weight: 800;">AUTO-SYNC</div>
+        </div>
+        <div id="flow-list">
+            <!-- Los flujos se cargarán aquí -->
+        </div>
+    </div>
+
+    <div class="main-editor">
+        <div class="nav">
+            <a href="/" class="btn btn-ghost">Dashboard</a>
+            <button class="btn btn-primary" onclick="saveAll()">Guardar Todo</button>
+        </div>
+
+        <div id="editor-container">
+            <!-- El editor dinámico se cargará aquí -->
+            <div style="text-align: center; margin-top: 20vh; color: var(--text-dim);">
+                <span style="font-size: 3rem;">🖱️</span>
+                <p>Selecciona un flujo para empezar a editarlo</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fullConfig = {};
+        let activeFlowId = null;
+
+        async function loadConfig() {
+            const res = await fetch('/v1/config');
+            fullConfig = await res.json();
+            renderFlowList();
+        }
+
+        function renderFlowList() {
+            const list = document.getElementById('flow-list');
+            list.innerHTML = '';
+            
+            Object.keys(fullConfig).forEach(id => {
+                const item = document.createElement('div');
+                item.className = `flow-item ${id === activeFlowId ? 'active' : ''}`;
+                item.onclick = () => selectFlow(id);
+                
+                item.innerHTML = `
+                    <span>${id}</span>
+                    <small>${fullConfig[id].keywords?.join(', ') || 'Evento Externo'}</small>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function selectFlow(id) {
+            activeFlowId = id;
+            renderFlowList();
+            renderEditor(id);
+        }
+
+        function renderEditor(id) {
+            const container = document.getElementById('editor-container');
+            const flow = fullConfig[id];
+            
+            container.innerHTML = `
+                <div class="editor-card active">
+                    <h1 style="margin-top: 0; font-size: 1.5rem;">Editando: ${id}</h1>
+                    
+                    <div class="field">
+                        <label>Palabras Clave (Keywords)</label>
+                        <input type="text" id="edit-keywords" value="${flow.keywords?.join(', ') || ''}" placeholder="separadas por coma">
+                    </div>
+
+                    <div class="field">
+                        <label>Mensajes del Bot</label>
+                        <textarea id="edit-messages" placeholder="Un mensaje por línea">${flow.messages?.join('\n') || ''}</textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="field">
+                            <label>Delay (ms)</label>
+                            <input type="number" id="edit-delay" value="${flow.options?.delay || 0}">
+                        </div>
+                        <div class="field">
+                            <label>Indicador "Escribiendo"</label>
+                            <select id="edit-typing">
+                                <option value="true" ${flow.options?.typing ? 'selected' : ''}>Activado</option>
+                                <option value="false" ${!flow.options?.typing ? 'selected' : ''}>Desactivado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    ${flow.actionName ? `
+                        <div class="field">
+                            <label>⚡ Acción Vinculada (Solo Lectura)</label>
+                            <input type="text" value="${flow.actionName}" disabled style="opacity: 0.5;">
+                        </div>
+                    ` : ''}
+
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="updateCurrentFlow('${id}')">Aplicar Cambios</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateCurrentFlow(id) {
+            const keywords = document.getElementById('edit-keywords').value.split(',').map(s => s.trim()).filter(s => s);
+            const messages = document.getElementById('edit-messages').value.split('\n').filter(s => s);
+            const delay = parseInt(document.getElementById('edit-delay').value);
+            const typing = document.getElementById('edit-typing').value === 'true';
+
+            fullConfig[id].keywords = keywords;
+            fullConfig[id].messages = messages;
+            if (!fullConfig[id].options) fullConfig[id].options = {};
+            fullConfig[id].options.delay = delay;
+            fullConfig[id].options.typing = typing;
+
+            showToast('✅ Cambios aplicados localmente');
+            renderFlowList();
+        }
+
+        async function saveAll() {
+            const res = await fetch('/v1/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fullConfig)
+            });
+
+            if (res.ok) {
+                showToast('🚀 ¡Configuración publicada y Bot reiniciado!');
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        loadConfig();
+    </script>
+</body>
+</html>

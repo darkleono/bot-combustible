@@ -1,52 +1,54 @@
 # Bitácora de Sesión: Combustible-Bot
 
-### Estado General
-*   **Rama Actual:** `feature/cloud-mimic-v1`
-*   **Commit de Referencia:** `10bd01c0818c86d0c5119aa906c37d9496a1eb57`
-*   **Arquitectura:** Monolítica (Restaurada post-crash del motor dinámico).
+## Meta
+- **Fecha (local):** 2026-04-06 (Noche)
+- **Zona horaria:** America/Mexico_City
+- **Rama:** `feature/cloud-mimic-v1`
+- **Commit base:** `10bd01c0818c86d0c5119aa906c37d9496a1eb57`
+- **Arquitectura:** Monolítica (restaurada post-crash del motor dinámico)
+- **Objetivo (1 línea):** Migrar acciones a `src/actions.ts` y estabilizar el monolito.
 
-### Puntos Críticos (Rescate)
-1.  **Revertir a Monolito:** Se restauró `src/app.ts` al commit `a187c3e`. Se abandonó (momentáneamente) el uso de `flows.config.json` y `ActionBridge` externo para eliminar la complejidad de carga asíncronas que estaba causando cierres silenciosos.
-2.  **Gestión de Puertos:** El bot es sensible al puerto `3008`. En caso de fallo con código de salida 1, limpiar procesos huérfanos (`lsof -i :3008`).
-3.  **Timeout de n8n:** El proceso de OCR vía Gemini tiene un timeout configurado de 40s. No reducir este valor ya que la latencia de IA es considerable.
+## Estado General
+- **Identidad:** "Combustible Bot" (VINCULADO Y ACTIVO)
+- **Puerto:** http://localhost:3008
+- **Estado de WhatsApp:** Conectado (Dashboard operativo)
+- **Archivo principal:** `src/app.ts` (formato monolítico)
 
-### Sesión: Migración de Acciones y Refactor Monolítico
-**Fecha:** 6 de Abril de 2026 (Noche)
-**Ubicación:** Rama `feature/cloud-mimic-v1`
-**Estado Actual:** ✅ ESTABLE / MONOLÍTICO REFACTORIZADO
+## Estado Inicial (antes)
+- **Problema recurrente:** cierres/fallo de arranque por sensibilidad al puerto `3008` (procesos huérfanos/zombis)
+- **Dependencia externa crítica:** webhook `n8n2.dmls.app` para OCR/flujo
 
-#### Acciones Realizadas
-1.  **Migración de Acciones (Paso 1 del Roadmap):** Se consolidó la lógica de validación y OCR en `src/actions.ts` (`ActionBridge`). Se eliminó el código duplicado/inline de `src/app.ts`, reemplazándolo por llamadas a la librería de acciones.
-2.  **Robustez de OCR:** Se implementó un timeout de 40s en la llamada al webhook de n8n para permitir el procesamiento completo de Gemini y Google Sheets sin desconexiones prematuras.
-3.  **Estabilización de Entorno:** Se detectó y eliminó un proceso zombi persistente en el puerto 3008 (PID 13824). Se verificó que el bot arranque limpiamente con `npm run dev`.
-4.  **Limpieza de app.ts:** Se corrigieron importaciones duplicadas y se aseguró que el Dashboard Moderno siga operativo (middleware `/` validado).
+## Cambios Realizados
+- **Migración de Acciones (Roadmap #1):** se consolidó validación + OCR en `src/actions.ts` (ActionBridge *interno*). Se eliminó código duplicado/inline en `src/app.ts`, reemplazándolo por llamadas a la librería de acciones.
+- **Robustez de OCR:** se implementó `timeout` de `40s` en la llamada al webhook de n8n para permitir el procesamiento completo de Gemini + Google Sheets sin desconexiones prematuras.
+- **Estabilización de entorno:** se detectó y eliminó un proceso zombi persistente en el puerto `3008` (PID `13824`). Se verificó arranque limpio con `npm run dev`.
+- **Limpieza de `app.ts`:** se corrigieron importaciones duplicadas y se aseguró que el dashboard moderno siga operativo (middleware `/` validado).
+- **Fix UI Builder:** se corrigió el enrutado de `/builder` para evitar `Not Found` por trailing slash u orden de middlewares (normalización de path y prioridad alta del interceptor).
 
-#### Puntos Críticos & Pendientes
-*   **n8n Webhook:** El bot sigue dependiendo del servidor `n8n2.dmls.app`. La migración "in-house" de la lógica (reemplazar n8n por Node.js local) es el siguiente paso lógico si se desea independencia total.
-*   **Variables de Entorno:** El `.env` está configurado para modo DEBUG técnico.
-*   **Orquestación Dinámica:** Con las acciones ahora modularizadas en `ActionBridge`, el bot está listo para volver a intentar el motor dinámico (`flow-builder.ts`) cuando se considere oportuno, pero por ahora el **Monolito** es la prioridad de estabilidad.
+## Config / Notas Técnicas
+- **Timeout de n8n (OCR):** `40s` (no reducir; latencia de IA es considerable).
+- **.env:** configurado para modo DEBUG técnico.
+- **Revert previo a monolito:** `src/app.ts` restaurado al commit `a187c3e`.
+- **Nota de nomenclatura:** “ActionBridge externo” (abandonado temporalmente junto con `flows.config.json`) vs “ActionBridge interno” (acciones centralizadas en `src/actions.ts`) para reducir complejidad de carga asíncrona y evitar cierres silenciosos.
 
-#### Cómo Volver a Empezar (Rescue)
-Si el bot falla al arrancar:
+## Verificación (después)
+- **Arranque:** `npm run dev` OK
+- **UI/Dashboard:** middleware `/` validado
+- **UI/Builder:** `/builder` OK (requirió matar proceso y relanzar para tomar cambios; nodemon no recargó en caliente en ese intento).
+
+## Puntos Críticos & Pendientes
+- **n8n Webhook:** el bot sigue dependiendo de `n8n2.dmls.app`. Siguiente paso lógico para independencia: migración “in-house” (reemplazar n8n por Node.js local).
+- **Orquestación dinámica:** con acciones modularizadas, el bot queda listo para reintentar el motor dinámico (`flow-builder.ts`) cuando se considere oportuno; por ahora, prioridad: estabilidad del monolito.
+
+## Roadmap de Estabilización (Progreso)
+1. **Migración de Acciones (✅ COMPLETADO):** integrar funciones de n8n (validación de usuarios y OCR) dentro de acciones asíncronas del monolito.
+2. **Dashboard Moderno (✅ VALIDADO):** mantener middleware de UI funcionando en Home.
+3. **Segundo intento de Env-Engine (PENDIENTE):** evaluar volver a orquestación dinámica con cargador más robusto para Node v25 cuando la lógica esté 100% estable en monolito.
+
+## Plan de Rescate (Recovery)
+Si el bot falla al arrancar (o cierra con `exit code 1`), primero asumir **puerto ocupado**:
 1. `lsof -i :3008`
 2. `kill -9 <PID>`
 3. `npm run dev`
 
----
-
-### 🔍 Arquitectura Actual
-- **Ubicación**: Rama `feature/cloud-mimic-v1`
-- **Archivo Principal**: `src/app.ts` (Formato Monolítico).
-- **Identidad**: "Combustible Bot" (VINCULADO Y ACTIVO).
-- **Puerto**: http://localhost:3008
-- **Estado de WhatsApp**: Conectado (Dashboard Operativo).
-
----
-
-### 🛣️ Roadmap de Estabilización (Progreso)
-1.  **Migración de Acciones (✅ COMPLETADO)**: Integrar las funciones de n8n (validación de usuarios y OCR) dentro de las acciones asíncronas del monolito actual.
-2.  **Dashboard Moderno (✅ VALIDADO)**: Mantener el middleware de UI que ya está validado y funcionando en la Home.
-3.  **Segundo Intento de Env-Engine (PENDIENTE)**: Cuando la lógica de registro n8n sea 100% estable en el monolito, se evaluará volver a intentar la orquestación dinámica con un cargador más robusto para Node v25.
-
----
-**Nota para el futuro**: Si el bot vuelve a cerrarse con "exit code 1", lo primero es ejecutar `lsof -i :3008` y limpiar cualquier instancia duplicada creada por `nodemon` o `tsx`. No es el código, es el sistema operativo protegiendo el puerto.
+Nota: si hay cambios de rutas/middlewares y no se reflejan, sospechar de **instancia vieja aún ligada al puerto** (o múltiples procesos) y hacer reinicio limpio.

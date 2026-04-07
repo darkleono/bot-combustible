@@ -12,6 +12,9 @@
   },
   "EXIT_FLOW": {
     "keywords": ["exit", "salir", "cancelar"],
+    "messages": [
+      "👋 *Sesión cerrada con éxito.* Has salido del flujo actual. Puedes escribir cualquier cosa para una nueva validación."
+    ],
     "actionName": "CLEAR_STATE"
   },
   "REGISTER_FLOW": {

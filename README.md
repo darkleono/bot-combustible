@@ -32,6 +32,11 @@ npm create builderbot@latest
 
 Visit [builderbot](https://builderbot.app/) to view the full documentation.
 
+## Bitácora (Combustible-Bot)
+
+- Bitácora activa: `session_tracking.md`
+- Plantilla para nuevas sesiones: `session_template.md`
+
 
 ## Official Course
 
