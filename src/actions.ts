@@ -50,7 +50,8 @@ export const ActionBridge = {
 
     PROCESS_TICKET_N8N: async (ctx: any, { state, flowDynamic, provider, endFlow }: any) => {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 60000) // 1 Minuto para tickets complejos
+        const timeoutId = setTimeout(() => controller.abort(), 60000) 
+        let processSuccess = false; // 🛡️ SEGURO: Evita el mensaje fantasma
 
         try {
             // 📝 PASO 1: Mensaje de espera inmediato
@@ -88,6 +89,9 @@ export const ActionBridge = {
             const botMsg = finalData?.message || finalData?.Mensaje || finalData?.mensaje || `✅ Ticket registrado exitosamente.`
             await flowDynamic(botMsg)
 
+            // Marcamos éxito antes de cerrar
+            processSuccess = true;
+
             // 📝 PASO 4: CIERRE ATÓMICO (Sin saltos a SALIDA para evitar duplicados)
             await (state as any).clear()
             logger.success('Sistema: Sesión Finalizada tras OCR.', 'SESSION')
@@ -96,6 +100,10 @@ export const ActionBridge = {
             
         } catch (error: any) {
             clearTimeout(timeoutId)
+            
+            // 🛡️ BLOQUEO: Si ya terminó con éxito, ignoramos el error fantasma
+            if (processSuccess) return;
+
             logger.error(`❌ [OCR]: Falló el ticket`, error, 'OCR')
             await flowDynamic("⚠️ Error al procesar tu foto. Por favor, asegúrate de que sea legible.")
             await (state as any).clear()
