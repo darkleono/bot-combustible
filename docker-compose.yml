@@ -9,15 +9,16 @@ services:
     ports:
       - "3008:3008"
     volumes:
-      # 📚 PERSISTENCIA DE SESIÓN (QR escaneado una sola vez)
-      - "/DATA/AppData/Bots/bot-combustible/auth:/app/.wwebjs_auth"
-      # o para Baileys (si usa bot.db):
-      - "/DATA/AppData/Bots/bot-combustible/db:/app/bot.db"
+      # 📚 PERSISTENCIA DE SESIÓN (Baileys usa /bot_sessions)
+      - "/DATA/AppData/Bots/bot-combustible/auth:/app/bot_sessions"
       
-      # ⚙️ PERSISTENCIA DE CONFIGURACIÓN (Editables desde CasaOS)
+      # 💾 BASE DE DATOS (JSON)
+      - "/DATA/AppData/Bots/bot-combustible/db/db.json:/app/db.json"
+      
+      # ⚙️ PERSISTENCIA DE CONFIGURACIÓN
       - "/DATA/AppData/Bots/bot-combustible/config/flows.config.json:/app/src/flows.config.json"
       
-      # 📝 PERSISTENCIA DE REGISTROS (Auditoría de fuel/OCR)
+      # 📝 PERSISTENCIA DE REGISTROS
       - "/DATA/AppData/Bots/bot-combustible/logs:/app/logs"
       
     environment:
