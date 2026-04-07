@@ -1,3 +1,15 @@
+# 📅 Registro de Parches y Estabilización - Diesel Bot
+
+## [07/04/2026] - 🚀 ESTABILIZACIÓN EXITOSA EN OCI (PRODUCCIÓN)
+**Estado**: ✅ RESUELTO
+**Logros**:
+- **Conexión**: Se resolvió el error 405 actualizando la versión de WhatsApp a `2,3000,1036784162`.
+- **Autenticación**: Implementación de renderizado dual de QR (Consola + Web Dashboard).
+- **Flujo de Usuario**: Confirmado el funcionamiento de: `Vinculación -> Validación -> OCR -> Confirmación -> Cierre`.
+- **Entorno**: Sincronización de variables de entorno entre Host y Contenedor.
+
+---
+
 # 🛠️ Log de Parches y Mejoras Técnicas del Bot
 ---
 
