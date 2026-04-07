@@ -9,10 +9,10 @@ services:
     ports:
       - "3008:3008"
     volumes:
-      # 📚 PERSISTENCIA DE SESIÓN (Baileys usa /bot_sessions)
+      # 📚 PERSISTENCIA DE SESIÓN
       - "/DATA/AppData/Bots/bot-combustible/auth:/app/bot_sessions"
       
-      # 💾 BASE DE DATOS (JSON)
+      # 💾 BASE DE DATOS
       - "/DATA/AppData/Bots/bot-combustible/db/db.json:/app/db.json"
       
       # ⚙️ PERSISTENCIA DE CONFIGURACIÓN
