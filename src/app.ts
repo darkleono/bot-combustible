@@ -177,18 +177,19 @@ const main = async () => {
             throw err
         })
 
-        // Middleware para parsear JSON (Estándar de Express)
-        adapterProvider.server.use(express.json())
-        adapterProvider.server.use(express.urlencoded({ extended: true }))
-
+        // 🚀 Endpoint de envío (BuilderBot ya parsea el body internamente en v1.4.1)
         adapterProvider.server.post(
             '/v1/enviar',
             handleCtx(async (bot, req, res) => {
-                const { number, message, urlMedia } = req.body ?? {}
                 try {
+                    // Si req.body ya existe (gracias al bot), lo usamos. 
+                    // Si no, probamos suerte, pero sin bloquear el stream.
+                    const data = req.body || {};
+                    const { number, message, urlMedia } = data;
+                    
                     if (!number || !message) {
                         res.writeHead(400, { 'Content-Type': 'application/json' })
-                        return res.end(JSON.stringify({ error: 'number and message are required' }))
+                        return res.end(JSON.stringify({ error: 'Faltan campos (number, message)' }))
                     }
 
                     await bot.sendMessage(number, message, { media: urlMedia ?? null })
