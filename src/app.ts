@@ -193,9 +193,23 @@ const main = async () => {
         adapterProvider.server.post(
             '/v1/messages',
             handleCtx(async (bot, req, res) => {
-                const { number, message, urlMedia } = req.body
-                await bot.sendMessage(number, message, { media: urlMedia ?? null })
-                return res.end('sended')
+                try {
+                    const { number, message, urlMedia } = req.body ?? {}
+                    
+                    if (!number || !message) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' })
+                        return res.end(JSON.stringify({ error: 'number and message are required' }))
+                    }
+
+                    await bot.sendMessage(number, message, { media: urlMedia ?? null })
+                    
+                    res.writeHead(200, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'sended', to: number }))
+                } catch (e) {
+                    logger.error(`Error en API /v1/messages: ${e.message}`, e, 'SERVER')
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ error: 'failed to send message', details: e.message }))
+                }
             })
         )
 
