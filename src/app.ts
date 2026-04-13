@@ -191,10 +191,12 @@ const main = async () => {
         })
 
         adapterProvider.server.post(
-            '/v1/messages',
+            '/v1/enviar',
             handleCtx(async (bot, req, res) => {
+                console.log('--- [DEBUG] Petición recibida en /v1/enviar ---')
                 try {
                     const { number, message, urlMedia } = req.body ?? {}
+                    console.log(`--- [DEBUG] Datos: num=${number}, msg=${message}, media=${!!urlMedia}`)
                     
                     if (!number || !message) {
                         res.writeHead(400, { 'Content-Type': 'application/json' })
@@ -203,10 +205,12 @@ const main = async () => {
 
                     await bot.sendMessage(number, message, { media: urlMedia ?? null })
                     
+                    console.log('--- [DEBUG] Envío exitoso ---')
                     res.writeHead(200, { 'Content-Type': 'application/json' })
                     return res.end(JSON.stringify({ status: 'sended', to: number }))
                 } catch (e) {
-                    logger.error(`Error en API /v1/messages: ${e.message}`, e, 'SERVER')
+                    console.error('--- [DEBUG] ERROR EN /v1/enviar:', e.message)
+                    logger.error(`Error en API /v1/enviar: ${e.message}`, e, 'SERVER')
                     res.writeHead(500, { 'Content-Type': 'application/json' })
                     return res.end(JSON.stringify({ error: 'failed to send message', details: e.message }))
                 }
