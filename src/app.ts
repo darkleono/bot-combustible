@@ -176,28 +176,15 @@ const main = async () => {
             throw err
         })
 
-        // 🔗 REGISTRO DE RUTAS NATIVAS
-        adapterProvider.server.use((req, _, next) => {
-            if (req.method === 'POST') {
-                let body = ''
-                req.on('data', chunk => { body += chunk.toString() })
-                req.on('end', () => {
-                    try { if (body) req.body = JSON.parse(body) } catch (e) { }
-                    next()
-                })
-            } else {
-                next()
-            }
-        })
+        // Middleware para parsear JSON (Estándar de Express)
+        adapterProvider.server.use(express.json())
+        adapterProvider.server.use(express.urlencoded({ extended: true }))
 
         adapterProvider.server.post(
             '/v1/enviar',
             handleCtx(async (bot, req, res) => {
-                console.log('--- [DEBUG] Petición recibida en /v1/enviar ---')
+                const { number, message, urlMedia } = req.body ?? {}
                 try {
-                    const { number, message, urlMedia } = req.body ?? {}
-                    console.log(`--- [DEBUG] Datos: num=${number}, msg=${message}, media=${!!urlMedia}`)
-                    
                     if (!number || !message) {
                         res.writeHead(400, { 'Content-Type': 'application/json' })
                         return res.end(JSON.stringify({ error: 'number and message are required' }))
@@ -205,14 +192,12 @@ const main = async () => {
 
                     await bot.sendMessage(number, message, { media: urlMedia ?? null })
                     
-                    console.log('--- [DEBUG] Envío exitoso ---')
                     res.writeHead(200, { 'Content-Type': 'application/json' })
-                    return res.end(JSON.stringify({ status: 'sended', to: number }))
+                    return res.end(JSON.stringify({ status: 'ok', sent: true, to: number }))
                 } catch (e) {
-                    console.error('--- [DEBUG] ERROR EN /v1/enviar:', e.message)
-                    logger.error(`Error en API /v1/enviar: ${e.message}`, e, 'SERVER')
+                    console.error('ERROR EN API /v1/enviar:', e)
                     res.writeHead(500, { 'Content-Type': 'application/json' })
-                    return res.end(JSON.stringify({ error: 'failed to send message', details: e.message }))
+                    return res.end(JSON.stringify({ error: 'fail', details: e.message }))
                 }
             })
         )
