@@ -31,9 +31,10 @@ export const ActionBridge = {
             if (finalData?.status === 'valid') {
                 await (state as any).update({ 
                     name: finalData?.Nombre || 'Conductor',
-                    phone: finalData?.Telefono || cleanNumber
+                    phone: finalData?.Telefono || cleanNumber,
+                    coordinador: finalData?.Coordinador || 'Sin Asignar'
                 })
-                logger.success(`Cerebro: Usuario Válido [${finalData?.Nombre}]`, 'ROUTING')
+                logger.success(`Cerebro: Usuario Válido [${finalData?.Nombre}] - Coord: [${finalData?.Coordinador || 'N/A'}]`, 'ROUTING')
                 return await gotoFlow(getFlowFromRegistry('BIENVENIDA_EXITOSA'))
             } else {
                 logger.error(`Cerebro: Usuario No Autorizado.`, null, 'ROUTING')
@@ -75,7 +76,8 @@ export const ActionBridge = {
                     from: cleanNumber,
                     image_base64: base64Image,
                     Nombre_imagen: `ticket_${cleanNumber}.jpg`,
-                    Nombre: currentState?.name || 'Conductor', // 🛠️ CAMBIADO: 'Operador' -> 'Nombre'
+                    Nombre: currentState?.name || 'Conductor',
+                    Coordinador: currentState?.coordinador || 'Sin Asignar',
                     action: 'ocr'
                 }),
                 signal: controller.signal
