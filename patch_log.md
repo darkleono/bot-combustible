@@ -47,6 +47,11 @@ Este archivo documenta las modificaciones estructurales realizadas sobre el cód
 - **Cambio**: Filtro de cadenas `_event_media_` en el campo `Caption_imagen`.
 - **Razón**: Evita que n8n reciba Identificadores de Evento como si fuera texto escrito por el operador cuando la foto se envía sin comentario.
 
+### 👤 7. Trazabilidad de Responsables (v2.3)
+- **Cambio**: Captura del campo `Coordinador` en la validación y propagación en el proceso OCR.
+- **Razón**: Permite a n8n saber qué coordinador supervisa al operador que está registrando el ticket, facilitando auditorías inmediatas.
+- **Técnica**: Actualización de la arquitectura de construcción en el VPS usando `--force-recreate --build` para asegurar la integridad de la imagen Docker ante cambios de lógica.
+
 ---
-📅 **Última Actualización**: 6 de Abril de 2026
-👨‍💻 **Autor**: Antigravity Assistant
+📅 **Última Actualización**: 19 de Abril de 2026
+👨‍💻 **Autor**: Antigravity Assistant (Google Deepmind)
