@@ -8,7 +8,7 @@ import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import { logger } from './logger'
 import { ActionBridge } from './actions'
 import { registerDynamicFlows } from './flow-builder'
-import { valesGroupFlow, groupIdDiscoveryFlow } from './vales-flow'
+import { valesMediaFlow, valesTextFlow, groupIdDiscoveryFlow } from './vales-flow'
 import { valesService } from './vales-service'
 
 const PORT = process.env.PORT ?? 3008
@@ -22,9 +22,9 @@ const main = async () => {
     try {
         logger.info('🚀 Preparando motor dinámico y flujos JSON...', 'SYSTEM')
         
-        // 🔄 REGISTRO PRIORITARIO: groupIdDiscoveryFlow -> valesGroupFlow -> dynamicFlows
+        // 🔄 REGISTRO PRIORITARIO: groupIdDiscoveryFlow -> valesMediaFlow -> valesTextFlow -> dynamicFlows
         const dynamicFlows = registerDynamicFlows()
-        const adapterFlow = createFlow([groupIdDiscoveryFlow, valesGroupFlow, ...dynamicFlows])
+        const adapterFlow = createFlow([groupIdDiscoveryFlow, valesMediaFlow, valesTextFlow, ...dynamicFlows])
 
         // 🛠️ Configuración de versión de WhatsApp (Ajuste para OCI Error 405)
         let version: any = [2, 3000, 1036784162]; 
@@ -370,6 +370,8 @@ const main = async () => {
             } else if (jid.endsWith('@lid') && senderJid && !senderJid.endsWith('@lid')) {
                 targetJid = senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`
             }
+
+            logger.info(`📨 [MENSAJE]: Chat: [${jid}] | De: [${senderJid}] | Texto: "${text}" | Keys: ${Object.keys(messageContent).join(',')}`, 'WHATSAPP')
 
             // 🔍 1. Logger de comandos administrativos
             const cleanLower = text.toLowerCase()

@@ -4,7 +4,6 @@ import { valesService } from './vales-service'
 
 /**
  * 🔍 HELPER DE DESCUBRIMIENTO DE IDs DE GRUPO (#id, !id, /id)
- * Permite a los administradores obtener el ID exacto del chat o grupo
  */
 export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '/id', '#grupo', '!grupo', '#info', '!info'], { sensitive: false })
     .addAction(async (ctx, { flowDynamic }) => {
@@ -25,45 +24,34 @@ export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '/id', '#grupo', '
     })
 
 /**
- * ⛽ FLUJO DE CAPTURA DE VALES EN GRUPOS Y CHATS (SQLITE)
- * Silencioso: ÚNICAMENTE se activa si es una imagen y tiene caption que coincide con las palabras clave de vale
+ * ⛽ 1. FLUJO DE FOTOS / IMÁGENES DE VALES (SQLITE)
+ * Se activa ante cualquier mensaje con imagen (EVENTS.MEDIA)
  */
-export const valesGroupFlow = addKeyword([EVENTS.MEDIA, 'vale', 'combustible', 'diesel', 'ticket'], { sensitive: false })
-    .addAnswer(null, null, async (ctx, { flowDynamic, provider, endFlow }) => {
+export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
+    .addAction(async (ctx, { flowDynamic, provider, endFlow }) => {
         const groupId = ctx.key?.remoteJid || ctx.from
         
         // Extraer caption de todas las variantes de mensaje de Baileys
-        const rawCaption = 
+        const rawCaption = (
             ctx.message?.imageMessage?.caption ||
             ctx.message?.extendedTextMessage?.text ||
             ctx.message?.ephemeralMessage?.message?.imageMessage?.caption ||
-            ctx.message?.conversation ||
+            ctx.message?.viewOnceMessage?.message?.imageMessage?.caption ||
+            ctx.message?.viewOnceMessageV2?.message?.imageMessage?.caption ||
             ctx.body || ''
+        ).trim()
 
-        // Verificar si viene una imagen adjunta
-        const isMedia = !!(
-            ctx.message?.imageMessage || 
-            ctx.message?.ephemeralMessage?.message?.imageMessage || 
-            ctx.body?.includes('_event_media_') ||
-            ctx.message?.viewOnceMessage?.message?.imageMessage
-        )
+        logger.info(`📸 [MEDIA RECIBIDA]: Chat: [${groupId}] | Caption: "${rawCaption}"`, 'VALES')
 
         // 1. Filtrar según accessMode ('restricted' vs 'public')
         if (!valesService.isAllowed(groupId)) {
-            return
-        }
-
-        // Si es solo texto sin foto y escribieron sobre vales, orientar al usuario
-        if (!isMedia) {
-            if (valesService.isTriggerMatch(rawCaption) && !groupId.endsWith('@g.us')) {
-                await flowDynamic("📷 *Foto requerida:* Por favor, envía la *foto del vale* con el pie de foto `vale combustible [Unidad]` para registrarlo.")
-            }
+            logger.info(`[FILTRO]: Grupo ignorado [${groupId}] (Modo restringido)`, 'VALES')
             return
         }
 
         // 2. Filtrar por palabra clave en el caption
         if (!valesService.isTriggerMatch(rawCaption)) {
-            logger.info(`[FILTRO]: Imagen ignorada en [${groupId}] - Caption: "${rawCaption}"`, 'VALES')
+            logger.info(`[FILTRO]: Imagen ignorada en [${groupId}] - Caption no coincide: "${rawCaption}"`, 'VALES')
             return
         }
 
@@ -72,7 +60,7 @@ export const valesGroupFlow = addKeyword([EVENTS.MEDIA, 'vale', 'combustible', '
         const location = valesService.resolveLocation(groupId)
         const locationName = location.name
 
-        logger.info(`📸 [VALE DETECTADO]: Ubicación: [${locationName}] | Remitente: [${senderName}] | Caption: "${rawCaption}"`, 'VALES')
+        logger.info(`📸 [VALE ACEPTADO]: Ubicación: [${locationName}] | Remitente: [${senderName}] | Caption: "${rawCaption}"`, 'VALES')
 
         try {
             // 3. Descargar imagen usando el provider de BuilderBot
@@ -120,8 +108,22 @@ export const valesGroupFlow = addKeyword([EVENTS.MEDIA, 'vale', 'combustible', '
 
             return endFlow()
         } catch (error: any) {
-            logger.error('Error al procesar vale', error, 'VALES')
+            logger.error('Error al procesar vale en grupo', error, 'VALES')
             await flowDynamic(`⚠️ Error al registrar el vale: ${error.message}`)
             return endFlow()
+        }
+    })
+
+/**
+ * ⛽ 2. ORIENTACIÓN CUANDO ESCRIBEN TEXTO DE VALE SIN FOTO
+ */
+export const valesTextFlow = addKeyword(['vale combustible', 'vale diesel', 'ticket combustible', 'ticket diesel', '#vale', 'vale'], { sensitive: false })
+    .addAction(async (ctx, { flowDynamic }) => {
+        const jid = ctx.key?.remoteJid || ctx.from
+        const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
+        
+        // En grupos no spameamos si solo escriben texto, solo en privados
+        if (!isGroup) {
+            await flowDynamic('📷 *Foto requerida:* Por favor, adjunta la *foto del vale* con el pie de foto `vale combustible [Unidad]` para registrarlo.')
         }
     })
