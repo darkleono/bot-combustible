@@ -37,7 +37,9 @@ const main = async () => {
 
         const adapterProvider = createProvider(Provider, { 
             version,
-            writeLog: isDebug
+            writeLog: isDebug,
+            groupsIgnore: false,
+            writeMyself: 'both'
         })
         
         // 💾 BASE DE DATOS LOCAL
