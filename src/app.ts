@@ -371,30 +371,11 @@ const main = async () => {
                 targetJid = senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`
             }
 
-            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id
+            // 🔍 1. Logger de comandos administrativos
             const cleanLower = text.toLowerCase()
             const isCommand = cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info'
-
             if (isCommand) {
-                const replyText = 
-                    `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
-                    `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
-                    `🆔 *ID (JID):* \`${jid}\`\n` +
-                    `👤 *Tu ID:* \`${senderJid}\`\n\n` +
-                    `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
-
-                try {
-                    const socket = (adapterProvider as any).vendor || (adapterProvider as any).provider
-                    if (socket?.sendMessage) {
-                        await socket.sendMessage(targetJid, { text: replyText })
-                        if (targetJid !== jid) {
-                            await socket.sendMessage(jid, { text: replyText }).catch(() => {})
-                        }
-                        logger.success(`Respuesta #id enviada exitosamente a [${targetJid}]`, 'WHATSAPP')
-                    }
-                } catch (sendErr) {
-                    logger.error('Error al responder directo por socket', sendErr, 'WHATSAPP')
-                }
+                logger.info(`Comando ${cleanLower} detectado de [${senderJid}] en [${jid}]`, 'WHATSAPP')
             }
         })
 

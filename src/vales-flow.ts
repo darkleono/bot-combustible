@@ -7,7 +7,7 @@ import { valesService } from './vales-service'
  * Permite a los administradores obtener el ID exacto del chat o grupo
  */
 export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '/id', '#grupo', '!grupo', '#info', '!info'], { sensitive: false })
-    .addAnswer('🔍 *Consultando datos de identificación...*', null, async (ctx, { flowDynamic, provider }) => {
+    .addAction(async (ctx, { flowDynamic }) => {
         const jid = ctx.key?.remoteJid || ctx.from
         const senderJid = ctx.key?.participant || ctx.from
         const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
