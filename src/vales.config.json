@@ -9,18 +9,7 @@
     "#vale",
     "vale"
   ],
-  "allowedGroups": [
-    {
-      "id": "120363000000000001@g.us",
-      "name": "Ubicación 1 - Base Central",
-      "code": "BASE1"
-    },
-    {
-      "id": "120363000000000002@g.us",
-      "name": "Ubicación 2 - Patio Norte",
-      "code": "NORTE"
-    }
-  ],
+  "allowedGroups": [],
   "sendSlideToGroup": true,
   "dbPath": "database/vales.sqlite",
   "storagePath": "database/vales",
