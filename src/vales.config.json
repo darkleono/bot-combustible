@@ -1,5 +1,5 @@
 {
-  "accessMode": "restricted",
+  "accessMode": "public",
   "batchSize": 4,
   "triggerKeywords": [
     "vale combustible",

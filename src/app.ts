@@ -363,23 +363,37 @@ const main = async () => {
                 ''
             ).trim()
 
-            logger.info(`📨 [MENSAJE]: Chat: [${jid}] | De: [${senderJid}] | Texto: "${text}" | Keys: ${Object.keys(messageContent).join(',')}`, 'WHATSAPP')
+            // 🎯 Resolver el JID de destino correcto (Manejo de @lid y @s.whatsapp.net)
+            let targetJid = jid
+            if (jid.endsWith('@lid') && msg?.key?.remoteJidAlt) {
+                targetJid = msg.key.remoteJidAlt
+            } else if (jid.endsWith('@lid') && senderJid && !senderJid.endsWith('@lid')) {
+                targetJid = senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`
+            }
 
-            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id / hola / hello
+            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id / hola / hello o cualquier texto en modo público
             const cleanLower = text.toLowerCase()
-            if (cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info' || cleanLower === 'hola' || cleanLower === 'hello') {
+            const isCommand = cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info' || cleanLower === 'hola' || cleanLower === 'hello' || cleanLower.includes('id')
+
+            if (isCommand || (valesService.getConfig().accessMode === 'public' && text.length > 0 && !isGroup)) {
                 const replyText = 
-                    `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
+                    `📋 *BOT DE COMBUSTIBLE Y VALES (ACTIVO)*\n\n` +
                     `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
                     `🆔 *ID (JID):* \`${jid}\`\n` +
-                    `👤 *Tu ID:* \`${senderJid}\`\n\n` +
-                    `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
+                    `👤 *Tu ID:* \`${senderJid}\`\n` +
+                    `⚙️ *Modo:* \`${valesService.getConfig().accessMode.toUpperCase()}\`\n\n` +
+                    `📸 *Para registrar un vale:* Envía una foto con el pie de foto:\n` +
+                    `👉 \`vale combustible [Ubicación/Unidad]\`\n\n` +
+                    `Cada 4 fotos recibidas se armará la diapositiva 2x2 automáticamente.`
 
                 try {
                     const socket = (adapterProvider as any).vendor || (adapterProvider as any).provider
                     if (socket?.sendMessage) {
-                        await socket.sendMessage(jid, { text: replyText })
-                        logger.success(`Respuesta enviada exitosamente a [${jid}]`, 'WHATSAPP')
+                        await socket.sendMessage(targetJid, { text: replyText })
+                        if (targetJid !== jid) {
+                            await socket.sendMessage(jid, { text: replyText }).catch(() => {})
+                        }
+                        logger.success(`Respuesta enviada exitosamente a [${targetJid}]`, 'WHATSAPP')
                     }
                 } catch (sendErr) {
                     logger.error('Error al responder directo por socket', sendErr, 'WHATSAPP')
