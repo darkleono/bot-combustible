@@ -28,8 +28,8 @@ export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '/id', '#grupo', '
  * ⛽ FLUJO DE CAPTURA DE VALES EN GRUPOS Y CHATS (SQLITE)
  * Silencioso: ÚNICAMENTE se activa si es una imagen y tiene caption que coincide con las palabras clave de vale
  */
-export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
-    .addAction(async (ctx, { flowDynamic, provider, endFlow }) => {
+export const valesGroupFlow = addKeyword([EVENTS.MEDIA, 'vale', 'combustible', 'diesel', 'ticket'], { sensitive: false })
+    .addAnswer(null, null, async (ctx, { flowDynamic, provider, endFlow }) => {
         const groupId = ctx.key?.remoteJid || ctx.from
         
         // Extraer caption de todas las variantes de mensaje de Baileys
@@ -37,16 +37,34 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
             ctx.message?.imageMessage?.caption ||
             ctx.message?.extendedTextMessage?.text ||
             ctx.message?.ephemeralMessage?.message?.imageMessage?.caption ||
+            ctx.message?.conversation ||
             ctx.body || ''
+
+        // Verificar si viene una imagen adjunta
+        const isMedia = !!(
+            ctx.message?.imageMessage || 
+            ctx.message?.ephemeralMessage?.message?.imageMessage || 
+            ctx.body?.includes('_event_media_') ||
+            ctx.message?.viewOnceMessage?.message?.imageMessage
+        )
 
         // 1. Filtrar según accessMode ('restricted' vs 'public')
         if (!valesService.isAllowed(groupId)) {
-            return // Ignorar silenciosamente si no está permitido
+            return
+        }
+
+        // Si es solo texto sin foto y escribieron sobre vales, orientar al usuario
+        if (!isMedia) {
+            if (valesService.isTriggerMatch(rawCaption) && !groupId.endsWith('@g.us')) {
+                await flowDynamic("📷 *Foto requerida:* Por favor, envía la *foto del vale* con el pie de foto `vale combustible [Unidad]` para registrarlo.")
+            }
+            return
         }
 
         // 2. Filtrar por palabra clave en el caption
         if (!valesService.isTriggerMatch(rawCaption)) {
-            return // Ignorar silenciosamente si no es un vale
+            logger.info(`[FILTRO]: Imagen ignorada en [${groupId}] - Caption: "${rawCaption}"`, 'VALES')
+            return
         }
 
         const senderJid = ctx.key?.participant || ctx.from

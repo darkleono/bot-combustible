@@ -184,8 +184,17 @@ class ValesService {
      * Valida si el caption o texto contiene la palabra clave
      */
     public isTriggerMatch(caption: string): boolean {
-        if (!caption) return false
+        // En modo público o si no hay caption, permitir si es imagen
+        if (!caption || caption.includes('_event_media_')) return true
+
         const normalized = caption.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        
+        // Coincidencia con lista oficial o palabras clave comunes (incluso con typos como "combustble")
+        const commonMatches = ['vale', 'combust', 'diesel', 'ticket', 'litros', 'tanque', 'up-', 'upt-', 'up ']
+        if (commonMatches.some(term => normalized.includes(term))) {
+            return true
+        }
+
         return this.config.triggerKeywords.some(keyword => {
             const cleanKeyword = keyword.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
             return normalized.includes(cleanKeyword)
