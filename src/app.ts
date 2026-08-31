@@ -389,7 +389,136 @@ const main = async () => {
             if (fs.existsSync(join(process.cwd(), 'bot.qr.png'))) {
                 fs.unlinkSync(join(process.cwd(), 'bot.qr.png'))
             }
+            setupDirectBaileysSocket()
         })
+
+        // ⚡ RECEPTOR NATIVO DE BAILEYS (BYPASS BUG BUILDERBOT EN GRUPOS)
+        let socketHookAttached = false
+        const setupDirectBaileysSocket = () => {
+            if (socketHookAttached || !adapterProvider?.vendor?.ev) return
+            socketHookAttached = true
+            logger.info('🔌 Receptor nativo Baileys activado para grupos y chats.', 'SYSTEM')
+
+            adapterProvider.vendor.ev.on('messages.upsert', async (data: any) => {
+                const messages = data?.messages || []
+                for (const msg of messages) {
+                    if (msg.key?.fromMe) continue
+
+                    const jid = msg.key?.remoteJid || ''
+                    const senderJid = msg.key?.participant || msg.key?.remoteJid || ''
+                    const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
+
+                    const messageContent = msg.message || {}
+                    const text = (
+                        messageContent?.conversation ||
+                        messageContent?.extendedTextMessage?.text ||
+                        messageContent?.imageMessage?.caption ||
+                        messageContent?.ephemeralMessage?.message?.conversation ||
+                        messageContent?.ephemeralMessage?.message?.extendedTextMessage?.text ||
+                        messageContent?.ephemeralMessage?.message?.imageMessage?.caption ||
+                        messageContent?.viewOnceMessage?.message?.imageMessage?.caption ||
+                        messageContent?.viewOnceMessageV2?.message?.imageMessage?.caption ||
+                        ''
+                    ).trim()
+
+                    if (isGroup) {
+                        logger.info(`👥 [GRUPO ENTRANTE]: Grupo: [${jid}] | De: [${senderJid}] | Texto: "${text}"`, 'WHATSAPP')
+                    }
+
+                    // 1. Comando de identificación en grupos (#id, !id, /id)
+                    const cleanLower = text.toLowerCase()
+                    if (cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#grupo') {
+                        const idCard = 
+                            `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
+                            `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
+                            `🆔 *ID (JID):* \`${jid}\`\n` +
+                            `👤 *Tu ID:* \`${senderJid}\`\n\n` +
+                            `💡 _Copia este ID en el Panel Web para autorizar este grupo._`
+                        
+                        try {
+                            await adapterProvider.vendor.sendMessage(jid, { text: idCard })
+                        } catch (sendErr) {
+                            logger.error('Error al responder #id en grupo', sendErr, 'WHATSAPP')
+                        }
+                        continue
+                    }
+
+                    // 2. Procesamiento de Vales en Grupos y Chats
+                    const hasImage = !!(
+                        messageContent?.imageMessage ||
+                        messageContent?.ephemeralMessage?.message?.imageMessage ||
+                        messageContent?.viewOnceMessage?.message?.imageMessage ||
+                        messageContent?.viewOnceMessageV2?.message?.imageMessage
+                    )
+
+                    if (hasImage) {
+                        // A. Filtro por modo de acceso
+                        if (!valesService.isAllowed(jid)) {
+                            logger.info(`[FILTRO]: Mensaje ignorado en [${jid}] (Modo restringido)`, 'VALES')
+                            continue
+                        }
+
+                        // B. Filtro por palabra clave
+                        if (!valesService.isTriggerMatch(text)) {
+                            logger.info(`[FILTRO]: Foto ignorada en [${jid}] - Caption no coincide: "${text}"`, 'VALES')
+                            continue
+                        }
+
+                        const senderName = msg.pushName || 'Conductor'
+                        const location = valesService.resolveLocation(jid)
+                        const locationName = location.name
+
+                        logger.info(`📸 [VALE EN SOCKET]: [${locationName}] | Remitente: [${senderName}] | Caption: "${text}"`, 'VALES')
+
+                        try {
+                            const savedFilePath = await adapterProvider.saveFile(msg)
+                            const result = await valesService.processVoucher({
+                                groupId: jid,
+                                senderJid,
+                                senderName,
+                                caption: text,
+                                rawImageBufferOrPath: savedFilePath
+                            })
+
+                            if (result.isSlideGenerated && result.slide) {
+                                const completeMsg = 
+                                    `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
+                                    `📍 *Ubicación:* ${locationName}\n` +
+                                    `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
+                                    `💾 Registrado y archivado en SQLite exitosamente.`
+
+                                await adapterProvider.vendor.sendMessage(jid, { text: completeMsg })
+
+                                if (valesService.getConfig().sendSlideToGroup && result.slide.slideImagePath && fs.existsSync(result.slide.slideImagePath)) {
+                                    const imgBuffer = fs.readFileSync(result.slide.slideImagePath)
+                                    await adapterProvider.vendor.sendMessage(jid, {
+                                        image: imgBuffer,
+                                        caption: `🖼️ Diapositiva *#${result.slide.slideId}* (Cuadrícula 2x2):`
+                                    })
+                                }
+                            } else {
+                                const faltantes = result.batchTotal - result.batchCount
+                                const progressMsg = 
+                                    `✅ *Vale Registrado:* #${result.vale.id}\n` +
+                                    `📍 *Ubicación:* ${locationName}\n` +
+                                    `👤 *Remitente:* ${senderName}\n` +
+                                    `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n` +
+                                    `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
+
+                                await adapterProvider.vendor.sendMessage(jid, { text: progressMsg })
+                            }
+                        } catch (voucherErr: any) {
+                            logger.error('Error al procesar vale en socket', voucherErr, 'VALES')
+                        }
+                    }
+                }
+            })
+        }
+
+        // Si ya está listo el provider, enganchar de inmediato
+        if (adapterProvider?.vendor?.ev) {
+            setupDirectBaileysSocket()
+        }
 
         adapterProvider.on('auth_failure', (error) => {
             botStatus = '🔴 ERROR DE SESIÓN (REINTENTANDO)'
