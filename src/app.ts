@@ -345,19 +345,29 @@ const main = async () => {
             const jid = msg?.key?.remoteJid || msg?.from || ''
             const senderJid = msg?.key?.participant || msg?.from || ''
             const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
+
+            // Extractor exhaustivo de texto para todos los tipos de mensaje de WhatsApp
+            const messageContent = msg?.message || {}
             const text = (
                 msg?.body ||
-                msg?.message?.conversation ||
-                msg?.message?.extendedTextMessage?.text ||
-                msg?.message?.imageMessage?.caption ||
+                messageContent?.conversation ||
+                messageContent?.extendedTextMessage?.text ||
+                messageContent?.ephemeralMessage?.message?.conversation ||
+                messageContent?.ephemeralMessage?.message?.extendedTextMessage?.text ||
+                messageContent?.viewOnceMessage?.message?.conversation ||
+                messageContent?.viewOnceMessage?.message?.extendedTextMessage?.text ||
+                messageContent?.viewOnceMessageV2?.message?.conversation ||
+                messageContent?.viewOnceMessageV2?.message?.extendedTextMessage?.text ||
+                messageContent?.imageMessage?.caption ||
+                messageContent?.ephemeralMessage?.message?.imageMessage?.caption ||
                 ''
             ).trim()
 
-            logger.info(`📨 [MENSAJE ENTRANTE]: Chat: [${jid}] | De: [${senderJid}] | Contenido: "${text}"`, 'WHATSAPP')
+            logger.info(`📨 [MENSAJE]: Chat: [${jid}] | De: [${senderJid}] | Texto: "${text}" | Keys: ${Object.keys(messageContent).join(',')}`, 'WHATSAPP')
 
-            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id
+            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id / hola / hello
             const cleanLower = text.toLowerCase()
-            if (cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info') {
+            if (cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info' || cleanLower === 'hola' || cleanLower === 'hello') {
                 const replyText = 
                     `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
                     `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
@@ -366,12 +376,13 @@ const main = async () => {
                     `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
 
                 try {
-                    if (adapterProvider.vendor?.sendMessage) {
-                        await adapterProvider.vendor.sendMessage(jid, { text: replyText })
-                        logger.success(`Respuesta #id enviada exitosamente a [${jid}]`, 'WHATSAPP')
+                    const socket = (adapterProvider as any).vendor || (adapterProvider as any).provider
+                    if (socket?.sendMessage) {
+                        await socket.sendMessage(jid, { text: replyText })
+                        logger.success(`Respuesta enviada exitosamente a [${jid}]`, 'WHATSAPP')
                     }
                 } catch (sendErr) {
-                    logger.error('Error al responder #id directo por socket', sendErr, 'WHATSAPP')
+                    logger.error('Error al responder directo por socket', sendErr, 'WHATSAPP')
                 }
             }
         })
