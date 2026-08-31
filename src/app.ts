@@ -338,11 +338,40 @@ const main = async () => {
             })
         )
 
-        // 📡 MONITOREO DE EVENTOS PARA EL DASHBOARD Y MENSAJES
-        adapterProvider.on('message', (msg: any) => {
+        // 📡 MONITOREO DE EVENTOS PARA EL DASHBOARD Y MENSAJES DIRECTOS
+        adapterProvider.on('message', async (msg: any) => {
             const jid = msg?.key?.remoteJid || msg?.from || ''
-            const text = msg?.body || ''
-            logger.info(`📨 [MENSAJE ENTRANTE]: Chat: [${jid}] | Contenido: "${text}"`, 'WHATSAPP')
+            const senderJid = msg?.key?.participant || msg?.from || ''
+            const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
+            const text = (
+                msg?.body ||
+                msg?.message?.conversation ||
+                msg?.message?.extendedTextMessage?.text ||
+                msg?.message?.imageMessage?.caption ||
+                ''
+            ).trim()
+
+            logger.info(`📨 [MENSAJE ENTRANTE]: Chat: [${jid}] | De: [${senderJid}] | Contenido: "${text}"`, 'WHATSAPP')
+
+            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id
+            const cleanLower = text.toLowerCase()
+            if (cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info') {
+                const replyText = 
+                    `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
+                    `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
+                    `🆔 *ID (JID):* \`${jid}\`\n` +
+                    `👤 *Tu ID:* \`${senderJid}\`\n\n` +
+                    `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
+
+                try {
+                    if (adapterProvider.vendor?.sendMessage) {
+                        await adapterProvider.vendor.sendMessage(jid, { text: replyText })
+                        logger.success(`Respuesta #id enviada exitosamente a [${jid}]`, 'WHATSAPP')
+                    }
+                } catch (sendErr) {
+                    logger.error('Error al responder #id directo por socket', sendErr, 'WHATSAPP')
+                }
+            }
         })
 
         adapterProvider.on('ready', () => {
