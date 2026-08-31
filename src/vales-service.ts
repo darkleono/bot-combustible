@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { DatabaseSync } from 'node:sqlite'
 import { logger } from './logger'
 import { generateSlide2x2, ValeRecord, SlideResult } from './slide-generator'
 
@@ -7,15 +8,15 @@ export interface GroupConfig {
     id: string
     name: string
     code: string
-    active: boolean
 }
 
 export interface ValesConfig {
-    enabled: boolean
+    accessMode: 'restricted' | 'public' // 'restricted' = solo allowedGroups, 'public' = cualquier grupo/chat
     batchSize: number
     triggerKeywords: string[]
     allowedGroups: GroupConfig[]
     sendSlideToGroup: boolean
+    dbPath: string
     storagePath: string
     slidesPath: string
 }
@@ -27,20 +28,18 @@ export interface SlideRecord {
     createdAt: string
     imagePath: string
     imageUrl: string
-    valesIds: string[]
+    valesCount: number
 }
 
 const CONFIG_FILE = path.join(process.cwd(), 'src', 'vales.config.json')
-const DB_FILE = path.join(process.cwd(), 'database', 'vales_db.json')
 
 class ValesService {
     private config: ValesConfig
-    private vales: ValeRecord[] = []
-    private slides: SlideRecord[] = []
+    private db!: DatabaseSync
 
     constructor() {
         this.config = this.loadConfig()
-        this.loadDb()
+        this.initDatabase()
         this.ensureDirectories()
     }
 
@@ -59,14 +58,15 @@ class ValesService {
         }
 
         this.config = {
-            enabled: true,
+            accessMode: 'restricted',
             batchSize: 4,
             triggerKeywords: ['vale combustible', 'vale diesel', 'ticket combustible', '#vale', 'vale'],
             allowedGroups: [
-                { id: '120363000000000001@g.us', name: 'Ubicación 1 - Base Central', code: 'BASE1', active: true },
-                { id: '120363000000000002@g.us', name: 'Ubicación 2 - Patio Norte', code: 'NORTE', active: true }
+                { id: '120363000000000001@g.us', name: 'Ubicación 1 - Base Central', code: 'BASE1' },
+                { id: '120363000000000002@g.us', name: 'Ubicación 2 - Patio Norte', code: 'NORTE' }
             ],
             sendSlideToGroup: true,
+            dbPath: 'database/vales.sqlite',
             storagePath: 'database/vales',
             slidesPath: 'database/slides'
         }
@@ -76,7 +76,7 @@ class ValesService {
     public saveConfig(newConfig: Partial<ValesConfig>): ValesConfig {
         this.config = { ...this.config, ...newConfig }
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.config, null, 2), 'utf8')
-        logger.success('Configuración de Vales actualizada en caliente (Hot-Reload)', 'VALES')
+        logger.success(`Configuración actualizada [Modo: ${this.config.accessMode.toUpperCase()}]`, 'VALES')
         return this.config
     }
 
@@ -84,30 +84,61 @@ class ValesService {
         return this.config
     }
 
-    private loadDb(): void {
-        try {
-            if (fs.existsSync(DB_FILE)) {
-                const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))
-                this.vales = data.vales || []
-                this.slides = data.slides || []
-                logger.info(`Base de datos cargada: ${this.vales.length} vales, ${this.slides.length} diapositivas`, 'VALES')
-                return
-            }
-        } catch (error) {
-            logger.error('Error al leer vales_db.json', error, 'VALES')
-        }
-        this.vales = []
-        this.slides = []
-    }
+    /**
+     * Inicializa la base de datos SQLite con tablas e índices
+     */
+    private initDatabase(): void {
+        const dbFilePath = path.join(process.cwd(), this.config.dbPath || 'database/vales.sqlite')
+        const dir = path.dirname(dbFilePath)
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
-    private saveDb(): void {
-        try {
-            const dir = path.dirname(DB_FILE)
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-            fs.writeFileSync(DB_FILE, JSON.stringify({ vales: this.vales, slides: this.slides }, null, 2), 'utf8')
-        } catch (error) {
-            logger.error('Error al guardar vales_db.json', error, 'VALES')
-        }
+        this.db = new DatabaseSync(dbFilePath)
+
+        // Modo WAL para alta velocidad y concurrencia
+        this.db.exec('PRAGMA journal_mode = WAL;')
+        this.db.exec('PRAGMA synchronous = NORMAL;')
+
+        // Crear tabla de Vales
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS vales (
+                id TEXT PRIMARY KEY,
+                timestamp TEXT NOT NULL,
+                group_id TEXT NOT NULL,
+                location_name TEXT NOT NULL,
+                location_code TEXT NOT NULL,
+                sender_name TEXT NOT NULL,
+                sender_phone TEXT NOT NULL,
+                caption TEXT,
+                image_path TEXT NOT NULL,
+                slide_id TEXT,
+                slide_slot INTEGER,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        `)
+
+        // Crear tabla de Diapositivas
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS slides (
+                id TEXT PRIMARY KEY,
+                location_code TEXT NOT NULL,
+                location_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                image_path TEXT NOT NULL,
+                image_url TEXT NOT NULL,
+                vales_count INTEGER NOT NULL DEFAULT 4
+            );
+        `)
+
+        // Índices para búsquedas instantáneas
+        this.db.exec(`
+            CREATE INDEX IF NOT EXISTS idx_vales_loc_status ON vales(location_code, status);
+            CREATE INDEX IF NOT EXISTS idx_vales_group ON vales(group_id);
+            CREATE INDEX IF NOT EXISTS idx_vales_timestamp ON vales(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_vales_slide ON vales(slide_id);
+        `)
+
+        logger.info(`💾 SQLite inicializado exitosamente en: ${dbFilePath}`, 'SQLITE')
     }
 
     private ensureDirectories(): void {
@@ -118,19 +149,35 @@ class ValesService {
     }
 
     /**
-     * Valida si el JID de un grupo está en la lista de permitidos
+     * Valida si el mensaje debe ser procesado según el modo de acceso
      */
-    public isAllowedGroup(groupId: string): boolean {
-        if (!this.config.enabled) return false
+    public isAllowed(groupId: string): boolean {
+        // En modo público se procesan todos los grupos o chats
+        if (this.config.accessMode === 'public') {
+            return true
+        }
+
+        // En modo restringido solo los grupos configurados
         if (!groupId || !groupId.endsWith('@g.us')) return false
-        return this.config.allowedGroups.some(g => g.active && g.id.toLowerCase() === groupId.toLowerCase())
+        return this.config.allowedGroups.some(g => g.id.toLowerCase() === groupId.toLowerCase())
     }
 
     /**
-     * Obtiene la ubicación asociada a un ID de grupo
+     * Obtiene la ubicación asociada al grupo (o crea una dinámica si es modo público)
      */
-    public getLocationByGroup(groupId: string): GroupConfig | null {
-        return this.config.allowedGroups.find(g => g.active && g.id.toLowerCase() === groupId.toLowerCase()) || null
+    public resolveLocation(groupId: string, groupNameFallback?: string): GroupConfig {
+        const found = this.config.allowedGroups.find(g => g.id.toLowerCase() === groupId.toLowerCase())
+        if (found) return found
+
+        // Si es modo público y no está en la lista:
+        const cleanName = groupNameFallback || `Grupo ${groupId.split('@')[0].slice(-4)}`
+        const safeCode = cleanName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5) || 'LOC'
+
+        return {
+            id: groupId,
+            name: cleanName,
+            code: safeCode
+        }
     }
 
     /**
@@ -146,7 +193,7 @@ class ValesService {
     }
 
     /**
-     * Procesa y registra un vale proveniente de un grupo
+     * Procesa y registra un vale en SQLite
      */
     public async processVoucher(params: {
         groupId: string
@@ -154,6 +201,7 @@ class ValesService {
         senderName: string
         caption: string
         rawImageBufferOrPath: Buffer | string
+        groupNameFallback?: string
     }): Promise<{
         vale: ValeRecord
         isSlideGenerated: boolean
@@ -161,17 +209,16 @@ class ValesService {
         batchCount: number
         batchTotal: number
     }> {
-        const location = this.getLocationByGroup(params.groupId)
-        if (!location) {
-            throw new Error(`Grupo no autorizado: ${params.groupId}`)
+        if (!this.isAllowed(params.groupId)) {
+            throw new Error(`Acceso denegado para el chat/grupo: ${params.groupId}`)
         }
 
-        const now = new Date()
+        const location = this.resolveLocation(params.groupId, params.groupNameFallback)
         const locationCode = location.code
         const nextIdNumber = this.getNextValeNumber(locationCode)
         const valeId = `VALE-${locationCode}-${String(nextIdNumber).padStart(4, '0')}`
 
-        // Guardar archivo de imagen
+        // Guardar archivo físico de la imagen
         const valesDir = path.join(process.cwd(), this.config.storagePath || 'database/vales')
         const imageFilename = `${valeId}.jpg`
         const imagePath = path.join(valesDir, imageFilename)
@@ -183,52 +230,105 @@ class ValesService {
         }
 
         const cleanPhone = params.senderJid.split('@')[0]
+        const nowIso = new Date().toISOString()
 
-        const vale: ValeRecord = {
+        // 1. Insertar Vale en SQLite
+        const insertStmt = this.db.prepare(`
+            INSERT INTO vales (
+                id, timestamp, group_id, location_name, location_code, 
+                sender_name, sender_phone, caption, image_path, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        `)
+
+        insertStmt.run(
+            valeId,
+            nowIso,
+            params.groupId,
+            location.name,
+            location.code,
+            params.senderName || 'Conductor',
+            cleanPhone,
+            params.caption || '',
+            imagePath
+        )
+
+        logger.info(`📸 Vale guardado en SQLite: #${valeId} [${location.name}]`, 'VALES')
+
+        const valeRecord: ValeRecord = {
             id: valeId,
-            timestamp: now.toISOString(),
+            timestamp: nowIso,
             groupId: params.groupId,
             locationName: location.name,
             locationCode: location.code,
             senderName: params.senderName || 'Conductor',
             senderPhone: cleanPhone,
             caption: params.caption || '',
-            imagePath: imagePath,
+            imagePath,
             slideId: null,
             slideSlot: null,
             status: 'pending'
         }
 
-        this.vales.push(vale)
-        this.saveDb()
-        logger.info(`📸 Vale guardado: #${valeId} para [${location.name}]`, 'VALES')
+        // 2. Consultar cuántos vales pendientes existen en esta ubicación
+        const pendingQuery = this.db.prepare(`
+            SELECT * FROM vales 
+            WHERE location_code = ? AND status = 'pending' 
+            ORDER BY timestamp ASC
+        `)
 
-        // Verificar vales pendientes para esta ubicación
-        const pending = this.vales.filter(v => v.locationCode === locationCode && v.status === 'pending')
+        const pendingRows = pendingQuery.all(locationCode) as any[]
         const batchTotal = this.config.batchSize || 4
 
-        if (pending.length >= batchTotal) {
-            const batchToGroup = pending.slice(0, batchTotal)
-            logger.info(`✨ Lote de ${batchTotal} vales alcanzado para [${location.name}]. Generando diapositiva...`, 'VALES')
+        if (pendingRows.length >= batchTotal) {
+            const batchToGroup = pendingRows.slice(0, batchTotal).map(row => ({
+                id: row.id,
+                timestamp: row.timestamp,
+                groupId: row.group_id,
+                locationName: row.location_name,
+                locationCode: row.location_code,
+                senderName: row.sender_name,
+                senderPhone: row.sender_phone,
+                caption: row.caption,
+                imagePath: row.image_path,
+                slideId: null,
+                slideSlot: null,
+                status: 'pending' as const
+            }))
+
+            logger.info(`✨ Lote de ${batchTotal} alcanzado para [${location.name}]. Generando diapositiva...`, 'VALES')
 
             const slidesDir = path.join(process.cwd(), this.config.slidesPath || 'database/slides')
             const slideResult = await generateSlide2x2(location, batchToGroup, slidesDir)
 
-            // Registrar la diapositiva en DB
-            this.slides.push({
-                id: slideResult.slideId,
-                locationCode: location.code,
-                locationName: location.name,
-                createdAt: slideResult.createdAt,
-                imagePath: slideResult.slideImagePath,
-                imageUrl: slideResult.slideRelativeUrl,
-                valesIds: batchToGroup.map(v => v.id)
+            // 3. Registrar Diapositiva en SQLite
+            const insertSlideStmt = this.db.prepare(`
+                INSERT INTO slides (id, location_code, location_name, created_at, image_path, image_url, vales_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `)
+
+            insertSlideStmt.run(
+                slideResult.slideId,
+                location.code,
+                location.name,
+                slideResult.createdAt,
+                slideResult.slideImagePath,
+                slideResult.slideRelativeUrl,
+                batchTotal
+            )
+
+            // 4. Actualizar los 4 vales en SQLite
+            const updateValeStmt = this.db.prepare(`
+                UPDATE vales 
+                SET slide_id = ?, slide_slot = ?, status = 'grouped' 
+                WHERE id = ?
+            `)
+
+            batchToGroup.forEach((v, idx) => {
+                updateValeStmt.run(slideResult.slideId, idx + 1, v.id)
             })
 
-            this.saveDb()
-
             return {
-                vale,
+                vale: valeRecord,
                 isSlideGenerated: true,
                 slide: slideResult,
                 batchCount: batchTotal,
@@ -237,50 +337,86 @@ class ValesService {
         }
 
         return {
-            vale,
+            vale: valeRecord,
             isSlideGenerated: false,
-            batchCount: pending.length,
+            batchCount: pendingRows.length,
             batchTotal
         }
     }
 
     private getNextValeNumber(locationCode: string): number {
-        const matchingVales = this.vales.filter(v => v.locationCode === locationCode)
-        return matchingVales.length + 1
+        const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM vales WHERE location_code = ?')
+        const result = countStmt.get(locationCode) as { total: number }
+        return (result?.total || 0) + 1
     }
 
-    public getAllVales(): ValeRecord[] {
-        return this.vales
+    public getStats(): { totalVales: number; totalSlides: number; pendingVales: number } {
+        const valesCount = (this.db.prepare('SELECT COUNT(*) as c FROM vales').get() as any)?.c || 0
+        const slidesCount = (this.db.prepare('SELECT COUNT(*) as c FROM slides').get() as any)?.c || 0
+        const pendingCount = (this.db.prepare("SELECT COUNT(*) as c FROM vales WHERE status = 'pending'").get() as any)?.c || 0
+
+        return {
+            totalVales: valesCount,
+            totalSlides: slidesCount,
+            pendingVales: pendingCount
+        }
     }
 
-    public getAllSlides(): SlideRecord[] {
-        return this.slides
+    public isAllowedGroup(groupId: string): boolean {
+        return this.isAllowed(groupId)
     }
 
-    public getPendingValesByLocation(locationCode: string): ValeRecord[] {
-        return this.vales.filter(v => v.locationCode === locationCode && v.status === 'pending')
+    public getAllVales(limit = 100, offset = 0): ValeRecord[] {
+        const stmt = this.db.prepare('SELECT * FROM vales ORDER BY timestamp DESC LIMIT ? OFFSET ?')
+        const rows = stmt.all(limit, offset) as any[]
+        return rows.map(r => ({
+            id: r.id,
+            timestamp: r.timestamp,
+            groupId: r.group_id,
+            locationName: r.location_name,
+            locationCode: r.location_code,
+            senderName: r.sender_name,
+            senderPhone: r.sender_phone,
+            caption: r.caption,
+            imagePath: r.image_path,
+            slideId: r.slide_id,
+            slideSlot: r.slide_slot,
+            status: r.status
+        }))
     }
 
-    /**
-     * Exporta toda la base de datos a formato CSV compatible con Excel / Google Sheets
-     */
+    public getAllSlides(limit = 50, offset = 0): SlideRecord[] {
+        const stmt = this.db.prepare('SELECT * FROM slides ORDER BY created_at DESC LIMIT ? OFFSET ?')
+        const rows = stmt.all(limit, offset) as any[]
+        return rows.map(r => ({
+            id: r.id,
+            locationCode: r.location_code,
+            locationName: r.location_name,
+            createdAt: r.created_at,
+            imagePath: r.image_path,
+            imageUrl: r.image_url,
+            valesCount: r.vales_count
+        }))
+    }
+
     public exportCsv(): string {
+        const stmt = this.db.prepare('SELECT * FROM vales ORDER BY timestamp ASC')
+        const rows = stmt.all() as any[]
         const headers = ['ID Vale', 'Fecha y Hora', 'Ubicación', 'Remitente', 'Teléfono', 'Texto/Caption', 'ID Diapositiva', 'Ranura', 'Estatus', 'Archivo Imagen']
-        const rows = this.vales.map(v => [
+        const csvRows = rows.map(v => [
             v.id,
             v.timestamp,
-            `"${v.locationName}"`,
-            `"${v.senderName}"`,
-            v.senderPhone,
+            `"${v.location_name}"`,
+            `"${v.sender_name}"`,
+            v.sender_phone,
             `"${(v.caption || '').replace(/"/g, '""')}"`,
-            v.slideId || 'PENDIENTE',
-            v.slideSlot || '',
+            v.slide_id || 'PENDIENTE',
+            v.slide_slot || '',
             v.status,
-            `/assets/vales/${path.basename(v.imagePath)}`
+            `/assets/vales/${path.basename(v.image_path)}`
         ])
 
-        // UTF-8 BOM para abrir correctamente en Excel en español
-        return '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+        return '\uFEFF' + [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n')
     }
 }
 
