@@ -518,21 +518,35 @@
                     <div class="form-group" id="groupsContainerBox">
                         <label>3. Grupos Autorizados y Asignación de Ubicación</label>
                         <p style="color: var(--text-dim); font-size: 0.8rem; margin-bottom: 1rem;">
-                            Escribe <code>#id</code> dentro de un grupo para obtener su identificador (ej: <code>120363xxxxxx@g.us</code>) y agrégalo aquí:
+                            Selecciona los grupos de WhatsApp donde opera el bot para asignarles su nombre de ubicación y código de lote.
                         </p>
                         
                         <div id="groupsList">
                             <!-- Se inyecta dinámicamente -->
                         </div>
 
-                        <!-- AGREGAR NUEVO GRUPO -->
+                        <!-- SELECCIÓN INTELIGENTE DESDE WHATSAPP (DROPDOWN EN VIVO) -->
                         <div class="group-add-box">
-                            <div style="font-size: 0.8rem; font-weight: 800; color: var(--primary); margin-bottom: 0.75rem;">➕ Agregar Nuevo Grupo a la Lista</div>
-                            <div style="display: grid; grid-template-columns: 2fr 1fr 2.5fr auto; gap: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <div style="font-size: 0.85rem; font-weight: 800; color: var(--primary);">
+                                    🔍 Seleccionar Grupo desde tu WhatsApp
+                                </div>
+                                <button type="button" class="btn btn-outline" onclick="fetchWhatsAppGroups()" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;">
+                                    🔄 Refrescar Grupos de WhatsApp
+                                </button>
+                            </div>
+                            
+                            <div style="margin-bottom: 0.75rem;">
+                                <select id="whatsappGroupDropdown" class="form-control" onchange="onSelectWhatsAppGroup()" style="font-weight: 600;">
+                                    <option value="">-- Elige un grupo de WhatsApp detectado en tu bot --</option>
+                                </select>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 2fr 1fr 2.5fr auto; gap: 0.75rem; align-items: center;">
                                 <input type="text" id="newGroupName" class="form-control" placeholder="Nombre Ubicación (Ej: Base Central)">
                                 <input type="text" id="newGroupCode" class="form-control" placeholder="Código (Ej: BASE1)">
-                                <input type="text" id="newGroupId" class="form-control" placeholder="JID del Grupo (120363...xd@g.us)">
-                                <button type="button" class="btn btn-accent" onclick="addNewGroup()">Agregar</button>
+                                <input type="text" id="newGroupId" class="form-control" placeholder="JID (@g.us)" readonly style="background: rgba(15,23,42,0.6); color: var(--text-muted);">
+                                <button type="button" class="btn btn-accent" onclick="addNewGroup()">➕ Autorizar</button>
                             </div>
                         </div>
                     </div>
@@ -737,16 +751,46 @@
             }
         }
 
-        function openModal(imgSrc) {
-            document.getElementById('modalImg').src = imgSrc;
-            document.getElementById('imageModal').classList.add('active');
+        let liveWhatsAppGroups = [];
+
+        async function fetchWhatsAppGroups() {
+            const dropdown = document.getElementById('whatsappGroupDropdown');
+            if (!dropdown) return;
+            dropdown.innerHTML = '<option value="">⏳ Consultando grupos en tu WhatsApp...</option>';
+            try {
+                const res = await fetch('/api/vales/whatsapp-groups');
+                const data = await res.json();
+                liveWhatsAppGroups = data.groups || [];
+                
+                if (liveWhatsAppGroups.length === 0) {
+                    dropdown.innerHTML = '<option value="">⚠️ No se detectaron grupos en la cuenta vinculada.</option>';
+                    return;
+                }
+
+                dropdown.innerHTML = '<option value="">-- Selecciona un grupo de WhatsApp (' + liveWhatsAppGroups.length + ' detectados) --</option>' +
+                    liveWhatsAppGroups.map((g, idx) => `
+                        <option value="${idx}">👥 ${g.name} (${g.participantsCount} miembros)</option>
+                    `).join('');
+            } catch (err) {
+                dropdown.innerHTML = '<option value="">❌ Error al consultar grupos de WhatsApp.</option>';
+            }
         }
 
-        function closeModal() {
-            document.getElementById('imageModal').classList.remove('active');
+        function onSelectWhatsAppGroup() {
+            const val = document.getElementById('whatsappGroupDropdown').value;
+            if (val === '' || !liveWhatsAppGroups[val]) return;
+
+            const selected = liveWhatsAppGroups[val];
+            document.getElementById('newGroupName').value = selected.name;
+            const cleanCode = selected.name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5) || 'LOC';
+            document.getElementById('newGroupCode').value = cleanCode;
+            document.getElementById('newGroupId').value = selected.id;
         }
 
-        document.addEventListener('DOMContentLoaded', loadData);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            fetchWhatsAppGroups();
+        });
     </script>
 </body>
 </html>

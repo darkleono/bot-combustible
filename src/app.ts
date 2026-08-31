@@ -118,6 +118,27 @@ const main = async () => {
                 }
             }
 
+            // 👥 RUTA: LISTAR GRUPOS PARTICIPANTES DE WHATSAPP DIRECTO DESDE BAILEYS
+            if (url === '/api/vales/whatsapp-groups') {
+                try {
+                    let groups: any[] = []
+                    if (adapterProvider?.vendor?.groupFetchAllParticipating) {
+                        const fetched = await adapterProvider.vendor.groupFetchAllParticipating()
+                        groups = Object.values(fetched).map((g: any) => ({
+                            id: g.id,
+                            name: g.subject || 'Grupo sin nombre',
+                            participantsCount: Array.isArray(g.participants) ? g.participants.length : 0,
+                            creation: g.creation
+                        }))
+                    }
+                    res.writeHead(200, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'ok', groups }))
+                } catch (err: any) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'error', error: err.message, groups: [] }))
+                }
+            }
+
             // 📥 RUTA: EXPORTAR CSV
             if (url === '/api/vales/export.csv') {
                 const csvData = valesService.exportCsv()
