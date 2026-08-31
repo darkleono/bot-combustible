@@ -3,45 +3,30 @@ import { logger } from './logger'
 import { valesService } from './vales-service'
 
 /**
- * 👋 FLUJO DE INICIO / SALUDO UNIVERSAL
- * Responde a cualquier saludo o consulta inicial
- */
-export const flowHola = addKeyword([
-    'hola', 'hello', 'buenos dias', 'buenas tardes', 'buenas noches', 
-    'buenas', 'hi', 'inicio', 'menu', 'ayuda', 'start'
-], { sensitive: false })
-    .addAnswer(
-        `👋 *¡Hola! Bienvenido al Bot de Combustible y Vales.*\n\n` +
-        `⛽ *Funciones disponibles:*\n` +
-        `1️⃣ *Registrar Vale:* Envía una foto del vale con el texto:\n` +
-        `   👉 \`vale combustible UP-71\`\n` +
-        `2️⃣ *Consultar ID de Grupo:* Escribe \`#id\`\n` +
-        `3️⃣ *Iniciar Carga Tradicional:* Escribe \`cargar\``
-    )
-
-/**
  * 🔍 HELPER DE DESCUBRIMIENTO DE IDs DE GRUPO (#id, !id, /id)
+ * Permite a los administradores obtener el ID exacto del chat o grupo
  */
 export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '/id', '#grupo', '!grupo', '#info', '!info'], { sensitive: false })
-    .addAnswer('🔍 *Consultando datos de identificación...*', null, async (ctx, { flowDynamic }) => {
+    .addAnswer('🔍 *Consultando datos de identificación...*', null, async (ctx, { flowDynamic, provider }) => {
         const jid = ctx.key?.remoteJid || ctx.from
         const senderJid = ctx.key?.participant || ctx.from
         const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
 
         logger.info(`🔍 [DESCUBRIMIENTO DE ID]: Chat: ${jid} | Es Grupo: ${isGroup} | Remitente: ${senderJid}`, 'CONFIG')
 
-        await flowDynamic(
+        const messageText = 
             `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
             `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
             `🆔 *ID (JID):* \`${jid}\`\n` +
             `👤 *Tu ID:* \`${senderJid}\`\n\n` +
             `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
-        )
+
+        await flowDynamic(messageText)
     })
 
 /**
  * ⛽ FLUJO DE CAPTURA DE VALES EN GRUPOS Y CHATS (SQLITE)
- * Escucha imágenes con caption o evento MEDIA
+ * Silencioso: ÚNICAMENTE se activa si es una imagen y tiene caption que coincide con las palabras clave de vale
  */
 export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
     .addAction(async (ctx, { flowDynamic, provider, endFlow }) => {
@@ -56,14 +41,12 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
 
         // 1. Filtrar según accessMode ('restricted' vs 'public')
         if (!valesService.isAllowed(groupId)) {
-            logger.info(`[FILTRO]: Grupo ignorado [${groupId}] (Modo restringido)`, 'VALES')
-            return
+            return // Ignorar silenciosamente si no está permitido
         }
 
         // 2. Filtrar por palabra clave en el caption
         if (!valesService.isTriggerMatch(rawCaption)) {
-            logger.info(`[FILTRO]: Imagen en [${groupId}] sin caption de vale ("${rawCaption}")`, 'VALES')
-            return
+            return // Ignorar silenciosamente si no es un vale
         }
 
         const senderJid = ctx.key?.participant || ctx.from
@@ -109,7 +92,7 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
             } else {
                 const faltantes = result.batchTotal - result.batchCount
                 await flowDynamic(
-                    `✅ *Vale Registrado en SQLite:* #${result.vale.id}\n` +
+                    `✅ *Vale Registrado:* #${result.vale.id}\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `👤 *Remitente:* ${senderName}\n` +
                     `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n` +

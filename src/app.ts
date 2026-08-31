@@ -8,7 +8,7 @@ import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import { logger } from './logger'
 import { ActionBridge } from './actions'
 import { registerDynamicFlows } from './flow-builder'
-import { flowHola, valesGroupFlow, groupIdDiscoveryFlow } from './vales-flow'
+import { valesGroupFlow, groupIdDiscoveryFlow } from './vales-flow'
 import { valesService } from './vales-service'
 
 const PORT = process.env.PORT ?? 3008
@@ -22,9 +22,9 @@ const main = async () => {
     try {
         logger.info('🚀 Preparando motor dinámico y flujos JSON...', 'SYSTEM')
         
-        // 🔄 REGISTRO PRIORITARIO: flowHola -> groupIdDiscoveryFlow -> valesGroupFlow -> dynamicFlows
+        // 🔄 REGISTRO PRIORITARIO: groupIdDiscoveryFlow -> valesGroupFlow -> dynamicFlows
         const dynamicFlows = registerDynamicFlows()
-        const adapterFlow = createFlow([flowHola, groupIdDiscoveryFlow, valesGroupFlow, ...dynamicFlows])
+        const adapterFlow = createFlow([groupIdDiscoveryFlow, valesGroupFlow, ...dynamicFlows])
 
         // 🛠️ Configuración de versión de WhatsApp (Ajuste para OCI Error 405)
         let version: any = [2, 3000, 1036784162]; 
@@ -371,20 +371,17 @@ const main = async () => {
                 targetJid = senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`
             }
 
-            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id / hola / hello o cualquier texto en modo público
+            // 🔍 1. Respondedor Directo de Socket para #id / !id / /id
             const cleanLower = text.toLowerCase()
-            const isCommand = cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info' || cleanLower === 'hola' || cleanLower === 'hello' || cleanLower.includes('id')
+            const isCommand = cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#info' || cleanLower === '!info'
 
-            if (isCommand || (valesService.getConfig().accessMode === 'public' && text.length > 0 && !isGroup)) {
+            if (isCommand) {
                 const replyText = 
-                    `📋 *BOT DE COMBUSTIBLE Y VALES (ACTIVO)*\n\n` +
+                    `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
                     `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
                     `🆔 *ID (JID):* \`${jid}\`\n` +
-                    `👤 *Tu ID:* \`${senderJid}\`\n` +
-                    `⚙️ *Modo:* \`${valesService.getConfig().accessMode.toUpperCase()}\`\n\n` +
-                    `📸 *Para registrar un vale:* Envía una foto con el pie de foto:\n` +
-                    `👉 \`vale combustible [Ubicación/Unidad]\`\n\n` +
-                    `Cada 4 fotos recibidas se armará la diapositiva 2x2 automáticamente.`
+                    `👤 *Tu ID:* \`${senderJid}\`\n\n` +
+                    `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
 
                 try {
                     const socket = (adapterProvider as any).vendor || (adapterProvider as any).provider
@@ -393,7 +390,7 @@ const main = async () => {
                         if (targetJid !== jid) {
                             await socket.sendMessage(jid, { text: replyText }).catch(() => {})
                         }
-                        logger.success(`Respuesta enviada exitosamente a [${targetJid}]`, 'WHATSAPP')
+                        logger.success(`Respuesta #id enviada exitosamente a [${targetJid}]`, 'WHATSAPP')
                     }
                 } catch (sendErr) {
                     logger.error('Error al responder directo por socket', sendErr, 'WHATSAPP')
