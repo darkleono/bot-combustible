@@ -51,6 +51,17 @@ const main = async () => {
             const url = rawPath.replace(/\/+$/, '') || '/'
             const projectRoot = process.cwd()
             
+            // 📱 RUTA: QR CODE (IMAGEN DIRECTA)
+            if (url === '/qr') {
+                const qrPath = join(projectRoot, 'bot.qr.png')
+                if (fs.existsSync(qrPath)) {
+                    res.writeHead(200, { 'Content-Type': 'image/png' })
+                    return res.end(fs.readFileSync(qrPath))
+                }
+                res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' })
+                return res.end('<h3>📱 QR aún no generado o el bot ya está vinculado.</h3>')
+            }
+
             // 🖼️ RUTA: DASHBOARD DE VALES Y DIAPOSITIVAS (HTML)
             if (url === '/slides' || url === '/vales') {
                 const slidesHtmlPath = join(projectRoot, 'src', 'slides-dashboard.html')
