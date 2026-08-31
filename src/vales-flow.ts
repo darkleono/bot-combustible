@@ -3,24 +3,28 @@ import { logger } from './logger'
 import { valesService } from './vales-service'
 
 /**
- * 🔍 HELPER DE DESCUBRIMIENTO DE IDs DE GRUPO (#id o !id)
- * Permite escribir #id en cualquier grupo para obtener su ID exacto y agregarlo al config
+ * 🔍 HELPER DE DESCUBRIMIENTO DE IDs DE GRUPO (#id, !id, /id, id)
  */
-export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '#grupo', '!grupo'])
-    .addAction(async (ctx, { flowDynamic }) => {
+export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '/id', '#grupo', '!grupo', '#info', '!info'], { sensitive: false })
+    .addAnswer(null, null, async (ctx, { flowDynamic, provider }) => {
         const jid = ctx.key?.remoteJid || ctx.from
         const senderJid = ctx.key?.participant || ctx.from
         const isGroup = jid.endsWith('@g.us')
 
-        logger.info(`🔍 [DESCUBRIMIENTO DE ID]: Chat: ${jid} | Es Grupo: ${isGroup} | Solicitado por: ${senderJid}`, 'CONFIG')
+        logger.info(`🔍 [DESCUBRIMIENTO DE ID]: Chat: ${jid} | Es Grupo: ${isGroup} | Remitente: ${senderJid}`, 'CONFIG')
 
-        await flowDynamic(
+        const messageText = 
             `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
             `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
             `🆔 *ID (JID):* \`${jid}\`\n` +
             `👤 *Tu ID:* \`${senderJid}\`\n\n` +
             `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
-        )
+
+        try {
+            await flowDynamic(messageText)
+        } catch {
+            await provider.sendMessage(jid, messageText)
+        }
     })
 
 /**
@@ -28,18 +32,20 @@ export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '#grupo', '!grupo'
  * Escucha imágenes con caption "vale combustible"
  */
 export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
-    .addAction(async (ctx, { flowDynamic, provider, endFlow }) => {
+    .addAnswer(null, null, async (ctx, { flowDynamic, provider, endFlow }) => {
         const groupId = ctx.key?.remoteJid || ctx.from
         const caption = ctx.body || ''
 
         // 1. Filtrar según accessMode ('restricted' vs 'public')
         if (!valesService.isAllowed(groupId)) {
-            return // Ignorar mensajes fuera de la lista si está en modo restringido
+            logger.info(`[FILTRO]: Grupo ignorado [${groupId}] (No está en lista permitida y modo es restringido)`, 'VALES')
+            return
         }
 
         // 2. Filtrar por palabra clave en el caption
         if (!valesService.isTriggerMatch(caption)) {
-            return // Ignorar fotos que no sean de vales
+            logger.info(`[FILTRO]: Imagen ignorada en [${groupId}] (Caption "${caption}" no coincide con palabras clave)`, 'VALES')
+            return
         }
 
         const senderJid = ctx.key?.participant || ctx.from
@@ -65,13 +71,17 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
 
             // 5. Notificar en el grupo
             if (result.isSlideGenerated && result.slide) {
-                // Diapositiva completada (4/4)
-                await flowDynamic(
+                const completeMsg = 
                     `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
                     `💾 Registrado y archivado en SQLite exitosamente.`
-                )
+
+                try {
+                    await flowDynamic(completeMsg)
+                } catch {
+                    await provider.sendMessage(groupId, completeMsg)
+                }
 
                 // Reenviar diapositiva al grupo si está activo
                 if (valesService.getConfig().sendSlideToGroup && result.slide.slideImagePath) {
@@ -84,15 +94,19 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
                     }
                 }
             } else {
-                // Vale registrado en SQLite en espera
                 const faltantes = result.batchTotal - result.batchCount
-                await flowDynamic(
+                const progressMsg = 
                     `✅ *Vale Registrado en SQLite:* #${result.vale.id}\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `👤 *Remitente:* ${senderName}\n` +
                     `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n` +
                     `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
-                )
+
+                try {
+                    await flowDynamic(progressMsg)
+                } catch {
+                    await provider.sendMessage(groupId, progressMsg)
+                }
             }
 
             return endFlow()

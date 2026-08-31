@@ -338,7 +338,13 @@ const main = async () => {
             })
         )
 
-        // 📡 MONITOREO DE EVENTOS PARA EL DASHBOARD
+        // 📡 MONITOREO DE EVENTOS PARA EL DASHBOARD Y MENSAJES
+        adapterProvider.on('message', (msg: any) => {
+            const jid = msg?.key?.remoteJid || msg?.from || ''
+            const text = msg?.body || ''
+            logger.info(`📨 [MENSAJE ENTRANTE]: Chat: [${jid}] | Contenido: "${text}"`, 'WHATSAPP')
+        })
+
         adapterProvider.on('ready', () => {
             botStatus = '🟢 VINCULADO Y ACTIVO'
             botIsReady = true
