@@ -3,48 +3,66 @@ import { logger } from './logger'
 import { valesService } from './vales-service'
 
 /**
- * 🔍 HELPER DE DESCUBRIMIENTO DE IDs DE GRUPO (#id, !id, /id, id)
+ * 👋 FLUJO DE INICIO / SALUDO UNIVERSAL
+ * Responde a cualquier saludo o consulta inicial
+ */
+export const flowHola = addKeyword([
+    'hola', 'hello', 'buenos dias', 'buenas tardes', 'buenas noches', 
+    'buenas', 'hi', 'inicio', 'menu', 'ayuda', 'start'
+], { sensitive: false })
+    .addAnswer(
+        `👋 *¡Hola! Bienvenido al Bot de Combustible y Vales.*\n\n` +
+        `⛽ *Funciones disponibles:*\n` +
+        `1️⃣ *Registrar Vale:* Envía una foto del vale con el texto:\n` +
+        `   👉 \`vale combustible UP-71\`\n` +
+        `2️⃣ *Consultar ID de Grupo:* Escribe \`#id\`\n` +
+        `3️⃣ *Iniciar Carga Tradicional:* Escribe \`cargar\``
+    )
+
+/**
+ * 🔍 HELPER DE DESCUBRIMIENTO DE IDs DE GRUPO (#id, !id, /id)
  */
 export const groupIdDiscoveryFlow = addKeyword(['#id', '!id', '/id', '#grupo', '!grupo', '#info', '!info'], { sensitive: false })
-    .addAnswer(null, null, async (ctx, { flowDynamic, provider }) => {
+    .addAnswer('🔍 *Consultando datos de identificación...*', null, async (ctx, { flowDynamic }) => {
         const jid = ctx.key?.remoteJid || ctx.from
         const senderJid = ctx.key?.participant || ctx.from
-        const isGroup = jid.endsWith('@g.us')
+        const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
 
         logger.info(`🔍 [DESCUBRIMIENTO DE ID]: Chat: ${jid} | Es Grupo: ${isGroup} | Remitente: ${senderJid}`, 'CONFIG')
 
-        const messageText = 
+        await flowDynamic(
             `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
             `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
             `🆔 *ID (JID):* \`${jid}\`\n` +
             `👤 *Tu ID:* \`${senderJid}\`\n\n` +
             `💡 _Copia este ID en \`src/vales.config.json\` para autorizar este grupo._`
-
-        try {
-            await flowDynamic(messageText)
-        } catch {
-            await provider.sendMessage(jid, messageText)
-        }
+        )
     })
 
 /**
- * ⛽ FLUJO DE CAPTURA DE VALES EN GRUPOS (SQLITE)
- * Escucha imágenes con caption "vale combustible"
+ * ⛽ FLUJO DE CAPTURA DE VALES EN GRUPOS Y CHATS (SQLITE)
+ * Escucha imágenes con caption o evento MEDIA
  */
 export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
-    .addAnswer(null, null, async (ctx, { flowDynamic, provider, endFlow }) => {
+    .addAction(async (ctx, { flowDynamic, provider, endFlow }) => {
         const groupId = ctx.key?.remoteJid || ctx.from
-        const caption = ctx.body || ''
+        
+        // Extraer caption de todas las variantes de mensaje de Baileys
+        const rawCaption = 
+            ctx.message?.imageMessage?.caption ||
+            ctx.message?.extendedTextMessage?.text ||
+            ctx.message?.ephemeralMessage?.message?.imageMessage?.caption ||
+            ctx.body || ''
 
         // 1. Filtrar según accessMode ('restricted' vs 'public')
         if (!valesService.isAllowed(groupId)) {
-            logger.info(`[FILTRO]: Grupo ignorado [${groupId}] (No está en lista permitida y modo es restringido)`, 'VALES')
+            logger.info(`[FILTRO]: Grupo ignorado [${groupId}] (Modo restringido)`, 'VALES')
             return
         }
 
         // 2. Filtrar por palabra clave en el caption
-        if (!valesService.isTriggerMatch(caption)) {
-            logger.info(`[FILTRO]: Imagen ignorada en [${groupId}] (Caption "${caption}" no coincide con palabras clave)`, 'VALES')
+        if (!valesService.isTriggerMatch(rawCaption)) {
+            logger.info(`[FILTRO]: Imagen en [${groupId}] sin caption de vale ("${rawCaption}")`, 'VALES')
             return
         }
 
@@ -53,7 +71,7 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
         const location = valesService.resolveLocation(groupId)
         const locationName = location.name
 
-        logger.info(`📸 [VALE DETECTADO]: Ubicación: [${locationName}] | Remitente: [${senderName}] | Caption: "${caption}"`, 'VALES')
+        logger.info(`📸 [VALE DETECTADO]: Ubicación: [${locationName}] | Remitente: [${senderName}] | Caption: "${rawCaption}"`, 'VALES')
 
         try {
             // 3. Descargar imagen usando el provider de BuilderBot
@@ -65,23 +83,18 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
                 groupId,
                 senderJid,
                 senderName,
-                caption,
+                caption: rawCaption,
                 rawImageBufferOrPath: savedFilePath
             })
 
-            // 5. Notificar en el grupo
+            // 5. Notificar en el chat/grupo
             if (result.isSlideGenerated && result.slide) {
-                const completeMsg = 
+                await flowDynamic(
                     `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
                     `💾 Registrado y archivado en SQLite exitosamente.`
-
-                try {
-                    await flowDynamic(completeMsg)
-                } catch {
-                    await provider.sendMessage(groupId, completeMsg)
-                }
+                )
 
                 // Reenviar diapositiva al grupo si está activo
                 if (valesService.getConfig().sendSlideToGroup && result.slide.slideImagePath) {
@@ -90,28 +103,23 @@ export const valesGroupFlow = addKeyword(EVENTS.MEDIA)
                             media: result.slide.slideImagePath
                         })
                     } catch (sendErr) {
-                        logger.error('Error al enviar imagen de diapositiva al grupo', sendErr, 'VALES')
+                        logger.error('Error al enviar imagen de diapositiva', sendErr, 'VALES')
                     }
                 }
             } else {
                 const faltantes = result.batchTotal - result.batchCount
-                const progressMsg = 
+                await flowDynamic(
                     `✅ *Vale Registrado en SQLite:* #${result.vale.id}\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `👤 *Remitente:* ${senderName}\n` +
                     `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n` +
                     `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
-
-                try {
-                    await flowDynamic(progressMsg)
-                } catch {
-                    await provider.sendMessage(groupId, progressMsg)
-                }
+                )
             }
 
             return endFlow()
         } catch (error: any) {
-            logger.error('Error al procesar vale en grupo', error, 'VALES')
+            logger.error('Error al procesar vale', error, 'VALES')
             await flowDynamic(`⚠️ Error al registrar el vale: ${error.message}`)
             return endFlow()
         }

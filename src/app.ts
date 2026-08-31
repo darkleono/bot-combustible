@@ -8,7 +8,7 @@ import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import { logger } from './logger'
 import { ActionBridge } from './actions'
 import { registerDynamicFlows } from './flow-builder'
-import { valesGroupFlow, groupIdDiscoveryFlow } from './vales-flow'
+import { flowHola, valesGroupFlow, groupIdDiscoveryFlow } from './vales-flow'
 import { valesService } from './vales-service'
 
 const PORT = process.env.PORT ?? 3008
@@ -22,9 +22,9 @@ const main = async () => {
     try {
         logger.info('🚀 Preparando motor dinámico y flujos JSON...', 'SYSTEM')
         
-        // 🔄 CARGA DINÁMICA DE FLUJOS DESDE JSON + FLUJO DE VALES EN GRUPOS + HELPER #id
+        // 🔄 REGISTRO PRIORITARIO: flowHola -> groupIdDiscoveryFlow -> valesGroupFlow -> dynamicFlows
         const dynamicFlows = registerDynamicFlows()
-        const adapterFlow = createFlow([...dynamicFlows, valesGroupFlow, groupIdDiscoveryFlow])
+        const adapterFlow = createFlow([flowHola, groupIdDiscoveryFlow, valesGroupFlow, ...dynamicFlows])
 
         // 🛠️ Configuración de versión de WhatsApp (Ajuste para OCI Error 405)
         let version: any = [2, 3000, 1036784162]; 
