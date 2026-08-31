@@ -76,19 +76,29 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                 rawImageBufferOrPath: savedFilePath
             })
 
-            // 5. Notificar en el chat/grupo
+            // 5. Notificar en el chat/grupo (Resolviendo @lid a @s.whatsapp.net si es privado)
+            const targetRecipient = (groupId.endsWith('@lid') && senderJid) 
+                ? (senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`) 
+                : groupId
+
             if (result.isSlideGenerated && result.slide) {
-                await flowDynamic(
+                const completeMsg = 
                     `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
                     `💾 Registrado y archivado en SQLite exitosamente.`
-                )
+
+                try {
+                    await flowDynamic(completeMsg)
+                } catch {}
+                try {
+                    await provider.sendMessage(targetRecipient, completeMsg)
+                } catch {}
 
                 // Reenviar diapositiva al grupo si está activo
                 if (valesService.getConfig().sendSlideToGroup && result.slide.slideImagePath) {
                     try {
-                        await provider.sendMessage(groupId, `🖼️ Diapositiva *#${result.slide.slideId}* (Cuadrícula 2x2):`, {
+                        await provider.sendMessage(targetRecipient, `🖼️ Diapositiva *#${result.slide.slideId}* (Cuadrícula 2x2):`, {
                             media: result.slide.slideImagePath
                         })
                     } catch (sendErr) {
@@ -97,19 +107,25 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                 }
             } else {
                 const faltantes = result.batchTotal - result.batchCount
-                await flowDynamic(
+                const progressMsg = 
                     `✅ *Vale Registrado:* #${result.vale.id}\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `👤 *Remitente:* ${senderName}\n` +
                     `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n` +
                     `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
-                )
+
+                try {
+                    await flowDynamic(progressMsg)
+                } catch {}
+                try {
+                    await provider.sendMessage(targetRecipient, progressMsg)
+                } catch {}
             }
 
             return endFlow()
         } catch (error: any) {
             logger.error('Error al procesar vale en grupo', error, 'VALES')
-            await flowDynamic(`⚠️ Error al registrar el vale: ${error.message}`)
+            await flowDynamic(`⚠️ Error al registrar el vale: ${error.message}`).catch(() => {})
             return endFlow()
         }
     })
