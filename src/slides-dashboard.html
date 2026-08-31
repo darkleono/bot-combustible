@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Vales y Diapositivas • Grupo Ortiz</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #020617;
+            --bg-card: #0f172a;
+            --bg-card-hover: #1e293b;
+            --border: #334155;
+            --primary: #38bdf8;
+            --primary-hover: #7dd3fc;
+            --accent: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand-title {
+            font-size: 1.6rem;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-badge {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            text-transform: uppercase;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #020617;
+            border: none;
+            padding: 0.65rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--text-muted);
+        }
+
+        /* METRICS */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--primary);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--text-main);
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
+        .metric-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* SECTION TITLES */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.6rem 1.2rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--bg-card-hover);
+            color: var(--primary);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* SLIDES GALLERY */
+        .slides-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .slide-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .slide-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .slide-preview {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .slide-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s;
+        }
+
+        .slide-preview:hover img {
+            transform: scale(1.02);
+        }
+
+        .slide-meta {
+            padding: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slide-title {
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--text-main);
+        }
+
+        .slide-date {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.2rem;
+        }
+
+        /* TABLE */
+        .table-wrapper {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        th {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 1rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+            color: var(--text-main);
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(30, 41, 59, 0.4); }
+
+        .badge-status {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-grouped { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-pending { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+        /* CONFIG FORM */
+        .config-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 800px;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal.active { display: flex; }
+        .modal img { max-width: 90vw; max-height: 90vh; border-radius: 0.5rem; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
+        .modal-close {
+            position: absolute;
+            top: 1.5rem; right: 2rem;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <div class="brand-title">
+                    ⛽ Control de Vales de Combustible
+                    <span class="brand-badge">Lotes 2x2</span>
+                </div>
+                <p style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.25rem;">
+                    Grupo Ortiz • Recepción automatizada en grupos de WhatsApp
+                </p>
+            </div>
+            <div class="header-actions">
+                <a href="/api/vales/export.csv" class="btn">📥 Descargar CSV (Excel)</a>
+                <a href="/dashboard" class="btn btn-outline">🏠 Volver al Core</a>
+            </div>
+        </header>
+
+        <!-- MÉTRICAS SUPERIORES -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Total Vales Recibidos</div>
+                <div class="metric-value" id="valesCount">0</div>
+                <div class="metric-sub">Capturados desde WhatsApp</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Diapositivas Generadas</div>
+                <div class="metric-value" id="slidesCount">0</div>
+                <div class="metric-sub">Lotes de 4 vales completados</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Vales en Acumulación</div>
+                <div class="metric-value" id="pendingCount">0</div>
+                <div class="metric-sub" id="pendingDetail">Esperando completar lote de 4</div>
+            </div>
+        </div>
+
+        <!-- PESTAÑAS -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('slidesTab')">🖼️ Diapositivas 2x2</button>
+            <button class="tab-btn" onclick="switchTab('valesTab')">📋 Registro de Vales</button>
+            <button class="tab-btn" onclick="switchTab('configTab')">⚙️ Configuración de Grupos (Hot-Reload)</button>
+        </div>
+
+        <!-- TAB 1: DIAPOSITIVAS -->
+        <div id="slidesTab" class="tab-content active">
+            <div class="section-header">
+                <h2 class="section-title">Diapositivas Listas para Oficina</h2>
+                <button class="btn btn-outline" onclick="loadData()">🔄 Actualizar</button>
+            </div>
+            <div class="slides-grid" id="slidesContainer">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+        </div>
+
+        <!-- TAB 2: VALES -->
+        <div id="valesTab" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">Historial y Conciliación de Vales</h2>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Vale</th>
+                            <th>Fecha</th>
+                            <th>Ubicación</th>
+                            <th>Remitente</th>
+                            <th>Texto / Caption</th>
+                            <th>Diapositiva</th>
+                            <th>Estatus</th>
+                            <th>Foto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="valesTableBody">
+                        <!-- Se inyecta dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 3: CONFIGURACIÓN -->
+        <div id="configTab" class="tab-content">
+            <div class="config-box">
+                <h2 class="section-title" style="margin-bottom: 1.5rem;">⚙️ Grupos y Palabras Clave Autorizadas</h2>
+                <form id="configForm" onsubmit="saveConfig(event)">
+                    <div class="form-group">
+                        <label>Palabras Clave de Disparo (separadas por coma)</label>
+                        <input type="text" id="triggerKeywords" class="form-control" placeholder="vale combustible, vale diesel, #vale">
+                        <small style="color: var(--text-dim); display:block; margin-top: 0.35rem;">El bot solo se activará si el pie de foto de la imagen contiene alguna de estas frases.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Grupos Permitidos de WhatsApp (JSON)</label>
+                        <textarea id="allowedGroupsJson" class="form-control" rows="8" style="font-family: monospace; font-size: 0.85rem;"></textarea>
+                        <small style="color: var(--text-dim); display:block; margin-top: 0.35rem;">Ingresa los JIDs de los 2 grupos autorizados (terminados en @g.us) y el nombre de su ubicación.</small>
+                    </div>
+
+                    <button type="submit" class="btn">💾 Guardar Configuración (Sin Reiniciar Bot)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE VISTA PREVIA -->
+    <div id="imageModal" class="modal" onclick="closeModal()">
+        <span class="modal-close">&times;</span>
+        <img id="modalImg" src="" alt="Diapositiva">
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch('/api/vales');
+                const data = await res.json();
+
+                // Métricas
+                document.getElementById('valesCount').textContent = data.totalVales || 0;
+                document.getElementById('slidesCount').textContent = data.totalSlides || 0;
+                document.getElementById('pendingCount').textContent = data.pendingVales || 0;
+
+                // Render Slides
+                const slidesGrid = document.getElementById('slidesContainer');
+                if (data.slides && data.slides.length > 0) {
+                    slidesGrid.innerHTML = data.slides.map(s => `
+                        <div class="slide-card">
+                            <div class="slide-preview" onclick="openModal('${s.imageUrl}')">
+                                <img src="${s.imageUrl}" alt="${s.id}" loading="lazy">
+                            </div>
+                            <div class="slide-meta">
+                                <div>
+                                    <div class="slide-title">${s.id}</div>
+                                    <div class="slide-date">${s.locationName} • ${new Date(s.createdAt).toLocaleDateString()}</div>
+                                </div>
+                                <a href="${s.imageUrl}" download="${s.id}.png" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">📥 PNG</a>
+                            </div>
+                        </div>
+                    `).reverse().join('');
+                } else {
+                    slidesGrid.innerHTML = `<div style="grid-column: 1/-1; padding: 3rem; text-align: center; color: var(--text-dim); background: var(--bg-card); border-radius: 1rem; border: 1px dashed var(--border);">No hay diapositivas generadas aún. Al acumular 4 vales en un grupo se generará la primera.</div>`;
+                }
+
+                // Render Table
+                const tbody = document.getElementById('valesTableBody');
+                if (data.vales && data.vales.length > 0) {
+                    tbody.innerHTML = data.vales.map(v => `
+                        <tr>
+                            <td><strong>${v.id}</strong></td>
+                            <td>${new Date(v.timestamp).toLocaleString()}</td>
+                            <td>${v.locationName}</td>
+                            <td>${v.senderName} (${v.senderPhone})</td>
+                            <td style="color: var(--primary);">${v.caption || '-'}</td>
+                            <td>${v.slideId ? `<strong style="color: var(--accent);">${v.slideId}</strong> (Slot ${v.slideSlot})` : '<span style="color: var(--text-dim);">En espera</span>'}</td>
+                            <td><span class="badge-status ${v.status === 'grouped' ? 'badge-grouped' : 'badge-pending'}">${v.status === 'grouped' ? 'Agrupado' : 'Pendiente'}</span></td>
+                            <td><a href="/assets/vales/${v.imagePath.split('/').pop()}" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Ver Foto</a></td>
+                        </tr>
+                    `).reverse().join('');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-dim);">No se han recibido vales todavía.</td></tr>`;
+                }
+
+                // Config
+                if (data.config) {
+                    document.getElementById('triggerKeywords').value = (data.config.triggerKeywords || []).join(', ');
+                    document.getElementById('allowedGroupsJson').value = JSON.stringify(data.config.allowedGroups || [], null, 2);
+                }
+
+            } catch (e) {
+                console.error('Error cargando datos de vales:', e);
+            }
+        }
+
+        async function saveConfig(e) {
+            e.preventDefault();
+            try {
+                const keywords = document.getElementById('triggerKeywords').value.split(',').map(k => k.trim()).filter(Boolean);
+                const allowedGroups = JSON.parse(document.getElementById('allowedGroupsJson').value);
+
+                const res = await fetch('/api/vales/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        triggerKeywords: keywords,
+                        allowedGroups: allowedGroups
+                    })
+                });
+
+                if (res.ok) {
+                    alert('✅ Configuración guardada y aplicada en caliente.');
+                    loadData();
+                } else {
+                    alert('❌ Error al guardar configuración.');
+                }
+            } catch (err) {
+                alert('JSON inválido en los grupos: ' + err.message);
+            }
+        }
+
+        function openModal(imgSrc) {
+            document.getElementById('modalImg').src = imgSrc;
+            document.getElementById('imageModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('imageModal').classList.remove('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

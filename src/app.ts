@@ -8,6 +8,8 @@ import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import { logger } from './logger'
 import { ActionBridge } from './actions'
 import { registerDynamicFlows } from './flow-builder'
+import { valesGroupFlow } from './vales-flow'
+import { valesService } from './vales-service'
 
 const PORT = process.env.PORT ?? 3008
 
@@ -20,9 +22,9 @@ const main = async () => {
     try {
         logger.info('🚀 Preparando motor dinámico y flujos JSON...', 'SYSTEM')
         
-        // 🔄 CARGA DINÁMICA DE FLUJOS DESDE JSON
+        // 🔄 CARGA DINÁMICA DE FLUJOS DESDE JSON + FLUJO DE VALES EN GRUPOS
         const dynamicFlows = registerDynamicFlows()
-        const adapterFlow = createFlow(dynamicFlows)
+        const adapterFlow = createFlow([...dynamicFlows, valesGroupFlow])
 
         // 🛠️ Configuración de versión de WhatsApp (Ajuste para OCI Error 405)
         let version: any = [2, 3000, 1036784162]; 
@@ -49,6 +51,94 @@ const main = async () => {
             const url = rawPath.replace(/\/+$/, '') || '/'
             const projectRoot = process.cwd()
             
+            // 🖼️ RUTA: DASHBOARD DE VALES Y DIAPOSITIVAS (HTML)
+            if (url === '/slides' || url === '/vales') {
+                const slidesHtmlPath = join(projectRoot, 'src', 'slides-dashboard.html')
+                if (fs.existsSync(slidesHtmlPath)) {
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+                    return res.end(fs.readFileSync(slidesHtmlPath, 'utf8'))
+                } else {
+                    res.writeHead(404)
+                    return res.end('Error: No se encuentra slides-dashboard.html')
+                }
+            }
+
+            // 📊 RUTA: API DE VALES Y DIAPOSITIVAS (JSON)
+            if (url === '/api/vales') {
+                const allVales = valesService.getAllVales()
+                const allSlides = valesService.getAllSlides()
+                const config = valesService.getConfig()
+                const pendingCount = allVales.filter(v => v.status === 'pending').length
+
+                res.writeHead(200, { 'Content-Type': 'application/json' })
+                return res.end(JSON.stringify({
+                    totalVales: allVales.length,
+                    totalSlides: allSlides.length,
+                    pendingVales: pendingCount,
+                    vales: allVales,
+                    slides: allSlides,
+                    config
+                }))
+            }
+
+            // ⚙️ RUTA: API CONFIGURACIÓN DE VALES (GET / POST)
+            if (url === '/api/vales/config') {
+                if (req.method === 'GET') {
+                    res.writeHead(200, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify(valesService.getConfig()))
+                }
+                if (req.method === 'POST') {
+                    let body = ''
+                    req.on('data', chunk => { body += chunk.toString() })
+                    req.on('end', () => {
+                        try {
+                            const parsed = JSON.parse(body)
+                            const updated = valesService.saveConfig(parsed)
+                            res.writeHead(200, { 'Content-Type': 'application/json' })
+                            return res.end(JSON.stringify({ status: 'ok', config: updated }))
+                        } catch (e: any) {
+                            res.writeHead(500, { 'Content-Type': 'application/json' })
+                            return res.end(JSON.stringify({ error: e.message }))
+                        }
+                    })
+                    return
+                }
+            }
+
+            // 📥 RUTA: EXPORTAR CSV
+            if (url === '/api/vales/export.csv') {
+                const csvData = valesService.exportCsv()
+                res.writeHead(200, {
+                    'Content-Type': 'text/csv; charset=utf-8',
+                    'Content-Disposition': 'attachment; filename="vales_combustible.csv"'
+                })
+                return res.end(csvData)
+            }
+
+            // 🖼️ RUTA ESTÁTICA: SERVIR DIAPOSITIVAS GENERADAS
+            if (url.startsWith('/assets/slides/')) {
+                const filename = url.replace('/assets/slides/', '')
+                const filePath = join(projectRoot, 'database', 'slides', filename)
+                if (fs.existsSync(filePath)) {
+                    res.writeHead(200, { 'Content-Type': 'image/png' })
+                    return res.end(fs.readFileSync(filePath))
+                }
+                res.writeHead(404)
+                return res.end('Diapositiva no encontrada')
+            }
+
+            // 📸 RUTA ESTÁTICA: SERVIR FOTOS DE VALES
+            if (url.startsWith('/assets/vales/')) {
+                const filename = url.replace('/assets/vales/', '')
+                const filePath = join(projectRoot, 'database', 'vales', filename)
+                if (fs.existsSync(filePath)) {
+                    res.writeHead(200, { 'Content-Type': 'image/jpeg' })
+                    return res.end(fs.readFileSync(filePath))
+                }
+                res.writeHead(404)
+                return res.end('Foto de vale no encontrada')
+            }
+
             // ⚙️ RUTA: CONFIGURACIÓN (API)
             if (url === '/v1/config') {
                 const configPath = join(projectRoot, 'src', 'flows.config.json')
@@ -65,7 +155,7 @@ const main = async () => {
                             logger.success('Configuración actualizada desde GUI.', 'SYSTEM')
                             res.writeHead(200, { 'Content-Type': 'application/json' })
                             return res.end(JSON.stringify({ status: 'ok' }))
-                        } catch (e) { res.writeHead(500); return res.end(e.message) }
+                        } catch (e: any) { res.writeHead(500); return res.end(e.message) }
                     })
                     return
                 }
@@ -113,9 +203,11 @@ const main = async () => {
                         .status-badge { display: inline-block; padding: 0.5rem 1rem; border-radius: 2rem; background: ${isOnline ? '#064e3b' : '#451a03'}; color: ${isOnline ? '#34d399' : '#fcd34d'}; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 1px; }
                         h1 { color: white; margin: 0 0 0.5rem 0; font-size: 1.8rem; font-weight: 800; }
                         .desc { color: #64748b; font-size: 0.9rem; margin-bottom: 2rem; line-height: 1.6; }
-                        .nav-links { margin-top: 1.5rem; display: flex; gap: 1rem; }
-                        .btn { display: inline-block; background: #38bdf8; color: #020617; padding: 0.8rem 2rem; border-radius: 0.75rem; text-decoration: none; font-weight: 800; transition: all 0.2s; font-size: 0.85rem; }
+                        .nav-links { margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+                        .btn { display: inline-block; background: #38bdf8; color: #020617; padding: 0.8rem 1.5rem; border-radius: 0.75rem; text-decoration: none; font-weight: 800; transition: all 0.2s; font-size: 0.85rem; }
                         .btn:hover { background: #7dd3fc; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(56, 189, 248, 0.2); }
+                        .btn-slides { background: #10b981; color: #020617; }
+                        .btn-slides:hover { background: #34d399; }
                         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; border-top: 1px solid #1e293b; padding-top: 1.5rem; }
                         .info-item label { display: block; color: #475569; font-size: 0.65rem; text-transform: uppercase; font-weight: 800; margin-bottom: 0.2rem; }
                         .info-item span { color: #cbd5e1; font-weight: 600; font-size: 0.85rem; }
@@ -133,6 +225,7 @@ const main = async () => {
                                 <p class="desc">${botDesc}</p>
                                 
                                 <div class="nav-links">
+                                    <a href="/slides" class="btn btn-slides">VALES & SLIDES 2x2 ⛽</a>
                                     <a href="/builder" class="btn">FLOW BUILDER 🛠️</a>
                                     ${needsQR ? '<a href="/qr" class="btn" style="background:#f59e0b">ESCANEAME 📱</a>' : ''}
                                 </div>

@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "batchSize": 4,
+  "triggerKeywords": [
+    "vale combustible",
+    "vale diesel",
+    "ticket combustible",
+    "ticket diesel",
+    "#vale",
+    "vale"
+  ],
+  "allowedGroups": [
+    {
+      "id": "120363000000000001@g.us",
+      "name": "Ubicación 1 - Base Central",
+      "code": "BASE1",
+      "active": true
+    },
+    {
+      "id": "120363000000000002@g.us",
+      "name": "Ubicación 2 - Patio Norte",
+      "code": "NORTE",
+      "active": true
+    }
+  ],
+  "sendSlideToGroup": true,
+  "storagePath": "database/vales",
+  "slidesPath": "database/slides"
+}

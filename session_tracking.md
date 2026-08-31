@@ -45,5 +45,16 @@ Para poner el bot en línea después de este commit:
 2. `sudo git reset --hard origin/feature/cloud-mimic-v1`
 3. `sudo docker compose up -d --build`
 
+## 🔄 Migración y Reconstrucción de VPS (26/08/2026)
+- **Nueva IP del Servidor:** `161.153.201.62` (Migración desde backup a nueva instancia OCI).
+- **Mantenimiento Criptográfico:**
+    - Se eliminaron las sesiones inactivas en desuso (`auth_old_backup`) para forzar la regeneración limpia del código QR.
+    - Se resolvió el error de conexión **405** (Client too old) actualizando la variable `WAPP_VERSION` a la versión de WhatsApp Web de agosto de 2026: `2,3000,1046041993` en los entornos de Docker/CasaOS de ambos bots.
+- **Mapeo de Puertos y Accesibilidad Directa:**
+    - **Bot Principal (Diesel):** `8088:8088` -> Disponible en `http://161.153.201.62:8088/`.
+    - **Bot Auxiliar (Cinthia):** Mapeado temporalmente en `8083:8088` -> Disponible en `http://161.153.201.62:8083/`.
+    - Ambos puertos fueron abiertos en el firewall local `ufw`.
+- **Estatus:** Ambos bots vinculados y operando con éxito.
+
 ---
-**Nota Técnica:** El bot se ejecuta ahora de forma optimizada: `PORT=8088` habilitado y `.env` sincronizado automáticamente con el contenedor.
+**Nota Técnica:** Para cambios de entorno en CasaOS, las variables de entorno inyectadas en la interfaz gráfica tienen prioridad sobre el archivo `.env`. En caso de reconexiones zombis con código `515`, se debe reiniciar el contenedor para destrabar el flujo.

@@ -5,3 +5,6 @@ dist
 *.log
 db.json
 bot.qr.png
+database/vales/*.jpg
+database/slides/*.png
+database/vales_db.json
