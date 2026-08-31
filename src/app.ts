@@ -48,7 +48,7 @@ const main = async () => {
         })
 
         // 🛡️ INTERCEPTOR GUI & CONFIG (PRIORIDAD ALTA)
-        const guiInterceptor = (req, res, next) => {
+        const guiInterceptor = async (req: any, res: any, next: any) => {
             const rawPath = typeof req.path === 'string' ? req.path : req.url.split('?')[0]
             const url = rawPath.replace(/\/+$/, '') || '/'
             const projectRoot = process.cwd()
