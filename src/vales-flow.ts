@@ -63,6 +63,9 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
         logger.info(`📸 [VALE ACEPTADO]: Ubicación: [${locationName}] | Remitente: [${senderName}] | Caption: "${rawCaption}"`, 'VALES')
 
         try {
+            // Mensaje de recepción inmediata
+            await flowDynamic(`⌛ *Procesando vale...*\n_Descargando imagen y registrando datos de ${senderName}..._`).catch(() => {})
+
             // 3. Descargar imagen usando el provider de BuilderBot
             logger.info('Descargando imagen del vale...', 'VALES')
             const savedFilePath = await provider.saveFile(ctx)
@@ -86,7 +89,7 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                     `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
-                    `💾 Registrado y archivado en SQLite exitosamente.`
+                    `💾 *Imagen guardada y archivada en SQLite exitosamente.*`
 
                 try {
                     await flowDynamic(completeMsg)
@@ -108,10 +111,12 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
             } else {
                 const faltantes = result.batchTotal - result.batchCount
                 const progressMsg = 
-                    `✅ *Vale Registrado:* #${result.vale.id}\n` +
+                    `✅ *Vale Guardado y Registrado Exitosamente*\n\n` +
+                    `🆔 *ID:* #${result.vale.id}\n` +
                     `📍 *Ubicación:* ${locationName}\n` +
                     `👤 *Remitente:* ${senderName}\n` +
-                    `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n` +
+                    `📝 *Detalle:* ${rawCaption || 'Sin descripción'}\n` +
+                    `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n\n` +
                     `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
 
                 try {

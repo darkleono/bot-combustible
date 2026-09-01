@@ -635,7 +635,15 @@ const main = async () => {
                         logger.info(`📸 [VALE EN SOCKET]: [${locationName}] | Remitente: [${senderName}] | Caption: "${text}"`, 'VALES')
 
                         try {
+                            // 1. Mensaje de confirmación de recepción / procesando
+                            await adapterProvider.vendor.sendMessage(jid, { 
+                                text: `⌛ *Procesando vale...*\n_Descargando imagen y registrando datos de ${senderName}..._` 
+                            }).catch(() => {})
+
+                            // 2. Descargar imagen
                             const savedFilePath = await adapterProvider.saveFile(msg)
+
+                            // 3. Registrar en SQLite y compilar lote
                             const result = await valesService.processVoucher({
                                 groupId: jid,
                                 senderJid,
@@ -644,12 +652,13 @@ const main = async () => {
                                 rawImageBufferOrPath: savedFilePath
                             })
 
+                            // 4. Mensaje de éxito informando el registro del vale
                             if (result.isSlideGenerated && result.slide) {
                                 const completeMsg = 
                                     `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
                                     `📍 *Ubicación:* ${locationName}\n` +
                                     `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
-                                    `💾 Registrado y archivado en SQLite exitosamente.`
+                                    `💾 *Imagen guardada y archivada en SQLite exitosamente.*`
 
                                 await adapterProvider.vendor.sendMessage(jid, { text: completeMsg })
 
@@ -663,16 +672,21 @@ const main = async () => {
                             } else {
                                 const faltantes = result.batchTotal - result.batchCount
                                 const progressMsg = 
-                                    `✅ *Vale Registrado:* #${result.vale.id}\n` +
+                                    `✅ *Vale Guardado y Registrado Exitosamente*\n\n` +
+                                    `🆔 *ID:* #${result.vale.id}\n` +
                                     `📍 *Ubicación:* ${locationName}\n` +
                                     `👤 *Remitente:* ${senderName}\n` +
-                                    `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n` +
+                                    `📝 *Detalle:* ${text || 'Sin descripción'}\n` +
+                                    `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n\n` +
                                     `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
 
                                 await adapterProvider.vendor.sendMessage(jid, { text: progressMsg })
                             }
                         } catch (voucherErr: any) {
                             logger.error('Error al procesar vale en socket', voucherErr, 'VALES')
+                            await adapterProvider.vendor.sendMessage(jid, { 
+                                text: `⚠️ *Error al procesar vale:* ${voucherErr.message}` 
+                            }).catch(() => {})
                         }
                     }
                 }
