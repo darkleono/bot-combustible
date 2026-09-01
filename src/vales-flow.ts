@@ -134,17 +134,3 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
             return endFlow()
         }
     })
-
-/**
- * ⛽ 2. ORIENTACIÓN CUANDO ESCRIBEN TEXTO DE VALE SIN FOTO
- */
-export const valesTextFlow = addKeyword(['vale combustible', 'vale diesel', 'ticket combustible', 'ticket diesel', '#vale', 'vale'], { sensitive: false })
-    .addAction(async (ctx, { flowDynamic }) => {
-        const jid = ctx.key?.remoteJid || ctx.from
-        const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
-        
-        // En grupos no spameamos si solo escriben texto, solo en privados
-        if (!isGroup) {
-            await flowDynamic('📷 *Foto requerida:* Por favor, adjunta la *foto del vale* con el pie de foto `vale combustible [Unidad]` para registrarlo.')
-        }
-    })

@@ -7,8 +7,7 @@ import { JsonFileDB as Database } from '@builderbot/database-json'
 import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import { logger } from './logger'
 import { ActionBridge } from './actions'
-import { registerDynamicFlows } from './flow-builder'
-import { valesMediaFlow, valesTextFlow, groupIdDiscoveryFlow } from './vales-flow'
+import { valesMediaFlow, groupIdDiscoveryFlow } from './vales-flow'
 import { valesService } from './vales-service'
 import { verifyCredentials, generateSessionToken, validateSessionToken, parseCookies } from './auth'
 
@@ -21,11 +20,10 @@ let botNeedsQR = false
 
 const main = async () => {
     try {
-        logger.info('🚀 Preparando motor dinámico y flujos JSON...', 'SYSTEM')
+        logger.info('🚀 Preparando motor especializado de vales de combustible...', 'SYSTEM')
         
-        // 🔄 REGISTRO PRIORITARIO: groupIdDiscoveryFlow -> valesMediaFlow -> valesTextFlow -> dynamicFlows
-        const dynamicFlows = registerDynamicFlows()
-        const adapterFlow = createFlow([groupIdDiscoveryFlow, valesMediaFlow, valesTextFlow, ...dynamicFlows])
+        // 🔄 REGISTRO EXCLUSIVO: groupIdDiscoveryFlow (#id) + valesMediaFlow (Captura de vales en grupos)
+        const adapterFlow = createFlow([groupIdDiscoveryFlow, valesMediaFlow])
 
         // 🛠️ Configuración de versión de WhatsApp (Ajuste para OCI Error 405)
         let version: any = [2, 3000, 1036784162]; 
