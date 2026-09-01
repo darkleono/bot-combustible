@@ -183,17 +183,30 @@ const main = async () => {
                     return res.end(JSON.stringify(valesService.getConfig()))
                 }
                 if (req.method === 'POST') {
-                    let body = ''
-                    req.on('data', chunk => { body += chunk.toString() })
-                    req.on('end', () => {
+                    const saveAndRespond = (data: any) => {
                         try {
-                            const parsed = JSON.parse(body)
-                            const updated = valesService.saveConfig(parsed)
+                            const updated = valesService.saveConfig(data)
                             res.writeHead(200, { 'Content-Type': 'application/json' })
                             return res.end(JSON.stringify({ status: 'ok', config: updated }))
                         } catch (e: any) {
                             res.writeHead(500, { 'Content-Type': 'application/json' })
                             return res.end(JSON.stringify({ error: e.message }))
+                        }
+                    }
+
+                    if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+                        return saveAndRespond(req.body)
+                    }
+
+                    let body = ''
+                    req.on('data', chunk => { body += chunk.toString() })
+                    req.on('end', () => {
+                        try {
+                            const parsed = JSON.parse(body || '{}')
+                            return saveAndRespond(parsed)
+                        } catch (e: any) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' })
+                            return res.end(JSON.stringify({ error: 'JSON inválido' }))
                         }
                     })
                     return
@@ -472,6 +485,22 @@ const main = async () => {
                     'Set-Cookie': `vales_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
                 })
                 return res.end(JSON.stringify({ status: 'ok', message: 'Sesión cerrada' }))
+            })
+        )
+
+        // ⚙️ RUTA FORMAL PARA GUARDAR CONFIGURACIÓN DE VALES
+        adapterProvider.server.post(
+            '/api/vales/config',
+            handleCtx(async (bot, req, res) => {
+                try {
+                    const data = req.body || {}
+                    const updated = valesService.saveConfig(data)
+                    res.writeHead(200, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'ok', config: updated }))
+                } catch (e: any) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ error: e.message }))
+                }
             })
         )
 
