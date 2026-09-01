@@ -56,25 +56,35 @@ const main = async () => {
             
             // 🔐 RUTA: API LOGIN (POST)
             if (url === '/api/login' && req.method === 'POST') {
+                const processAuth = (data: any) => {
+                    const username = data?.username || ''
+                    const password = data?.password || ''
+                    if (verifyCredentials(username, password)) {
+                        const token = generateSessionToken(username)
+                        res.writeHead(200, {
+                            'Content-Type': 'application/json',
+                            'Set-Cookie': `vales_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`
+                        })
+                        return res.end(JSON.stringify({ status: 'ok', username }))
+                    } else {
+                        res.writeHead(401, { 'Content-Type': 'application/json' })
+                        return res.end(JSON.stringify({ status: 'error', error: 'Credenciales inválidas.' }))
+                    }
+                }
+
+                if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+                    return processAuth(req.body)
+                }
+
                 let body = ''
                 req.on('data', (chunk: any) => { body += chunk.toString() })
                 req.on('end', () => {
                     try {
-                        const { username, password } = JSON.parse(body || '{}')
-                        if (verifyCredentials(username, password)) {
-                            const token = generateSessionToken(username)
-                            res.writeHead(200, {
-                                'Content-Type': 'application/json',
-                                'Set-Cookie': `vales_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`
-                            })
-                            return res.end(JSON.stringify({ status: 'ok', username }))
-                        } else {
-                            res.writeHead(401, { 'Content-Type': 'application/json' })
-                            return res.end(JSON.stringify({ status: 'error', error: 'Credenciales inválidas.' }))
-                        }
+                        const data = JSON.parse(body || '{}')
+                        return processAuth(data)
                     } catch (e: any) {
                         res.writeHead(400, { 'Content-Type': 'application/json' })
-                        return res.end(JSON.stringify({ status: 'error', error: 'Datos de inicio de sesión inválidos.' }))
+                        return res.end(JSON.stringify({ status: 'error', error: 'Datos de login inválidos.' }))
                     }
                 })
                 return
@@ -430,6 +440,38 @@ const main = async () => {
                 const blacklist = bot.blacklist.getList()
                 res.writeHead(200, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'ok', blacklist }))
+            })
+        )
+
+        // 🔐 ENDPOINTS FORMALES DE AUTENTICACIÓN
+        adapterProvider.server.post(
+            '/api/login',
+            handleCtx(async (bot, req, res) => {
+                const data = req.body || {}
+                const username = data?.username || ''
+                const password = data?.password || ''
+                if (verifyCredentials(username, password)) {
+                    const token = generateSessionToken(username)
+                    res.writeHead(200, {
+                        'Content-Type': 'application/json',
+                        'Set-Cookie': `vales_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`
+                    })
+                    return res.end(JSON.stringify({ status: 'ok', username }))
+                } else {
+                    res.writeHead(401, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'error', error: 'Credenciales incorrectas.' }))
+                }
+            })
+        )
+
+        adapterProvider.server.post(
+            '/api/logout',
+            handleCtx(async (bot, req, res) => {
+                res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Set-Cookie': `vales_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+                })
+                return res.end(JSON.stringify({ status: 'ok', message: 'Sesión cerrada' }))
             })
         )
 
