@@ -10,6 +10,7 @@ import { ActionBridge } from './actions'
 import { registerDynamicFlows } from './flow-builder'
 import { valesMediaFlow, valesTextFlow, groupIdDiscoveryFlow } from './vales-flow'
 import { valesService } from './vales-service'
+import { verifyCredentials, generateSessionToken, validateSessionToken, parseCookies } from './auth'
 
 const PORT = process.env.PORT ?? 3008
 
@@ -47,13 +48,66 @@ const main = async () => {
             filename: 'database/db.json'
         })
 
-        // 🛡️ INTERCEPTOR GUI & CONFIG (PRIORIDAD ALTA)
+        // 🛡️ INTERCEPTOR GUI & CONFIG (PRIORIDAD ALTA CON AUTENTICACIÓN)
         const guiInterceptor = async (req: any, res: any, next: any) => {
             const rawPath = typeof req.path === 'string' ? req.path : req.url.split('?')[0]
             const url = rawPath.replace(/\/+$/, '') || '/'
             const projectRoot = process.cwd()
             
-            // 📱 RUTA: QR CODE (IMAGEN DIRECTA)
+            // 🔐 RUTA: API LOGIN (POST)
+            if (url === '/api/login' && req.method === 'POST') {
+                let body = ''
+                req.on('data', (chunk: any) => { body += chunk.toString() })
+                req.on('end', () => {
+                    try {
+                        const { username, password } = JSON.parse(body || '{}')
+                        if (verifyCredentials(username, password)) {
+                            const token = generateSessionToken(username)
+                            res.writeHead(200, {
+                                'Content-Type': 'application/json',
+                                'Set-Cookie': `vales_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`
+                            })
+                            return res.end(JSON.stringify({ status: 'ok', username }))
+                        } else {
+                            res.writeHead(401, { 'Content-Type': 'application/json' })
+                            return res.end(JSON.stringify({ status: 'error', error: 'Credenciales inválidas.' }))
+                        }
+                    } catch (e: any) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' })
+                        return res.end(JSON.stringify({ status: 'error', error: 'Datos de inicio de sesión inválidos.' }))
+                    }
+                })
+                return
+            }
+
+            // 🚪 RUTA: API LOGOUT (POST/GET)
+            if (url === '/api/logout') {
+                res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Set-Cookie': `vales_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+                })
+                return res.end(JSON.stringify({ status: 'ok', message: 'Sesión cerrada' }))
+            }
+
+            // 🔐 RUTA: VISTA DE LOGIN (HTML)
+            if (url === '/login') {
+                const cookies = parseCookies(req.headers?.cookie)
+                if (validateSessionToken(cookies.vales_session)) {
+                    res.writeHead(302, { 'Location': '/slides' })
+                    return res.end()
+                }
+
+                const loginHtmlPath = join(projectRoot, 'src', 'login.html')
+                if (fs.existsSync(loginHtmlPath)) {
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+                    return res.end(fs.readFileSync(loginHtmlPath, 'utf8'))
+                } else {
+                    res.writeHead(404)
+                    return res.end('Error: No se encuentra login.html')
+                }
+            }
+
+            // 📱 RUTA: QR CODE (PÚBLICA PARA VINCULACIÓN FÁCIL)
             if (url === '/qr') {
                 const qrPath = join(projectRoot, 'bot.qr.png')
                 if (fs.existsSync(qrPath)) {
@@ -62,6 +116,24 @@ const main = async () => {
                 }
                 res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' })
                 return res.end('<h3>📱 QR aún no generado o el bot ya está vinculado.</h3>')
+            }
+
+            // 🔒 GUARDIA DE AUTENTICACIÓN PARA RUTAS ADMINISTRATIVAS
+            const protectedUrls = ['/slides', '/vales', '/api/vales', '/api/vales/config', '/api/vales/whatsapp-groups', '/api/vales/export.csv', '/builder', '/builder/index.html']
+            const isProtected = protectedUrls.includes(url) || url.startsWith('/api/vales')
+
+            if (isProtected) {
+                const cookies = parseCookies(req.headers?.cookie)
+                const isAuthenticated = validateSessionToken(cookies.vales_session)
+
+                if (!isAuthenticated) {
+                    if (url.startsWith('/api/')) {
+                        res.writeHead(401, { 'Content-Type': 'application/json' })
+                        return res.end(JSON.stringify({ error: 'No autorizado. Inicie sesión en /login' }))
+                    }
+                    res.writeHead(302, { 'Location': '/login' })
+                    return res.end()
+                }
             }
 
             // 🖼️ RUTA: DASHBOARD DE VALES Y DIAPOSITIVAS (HTML)

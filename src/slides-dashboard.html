@@ -473,6 +473,7 @@
             <div class="header-actions">
                 <a href="/api/vales/export.csv" class="btn">📥 Descargar CSV (Excel)</a>
                 <a href="/" class="btn btn-outline">🏠 Volver al Core</a>
+                <button type="button" onclick="logout()" class="btn btn-danger" style="padding: 0.65rem 1rem;">🚪 Salir</button>
             </div>
         </header>
 
@@ -892,6 +893,13 @@
                 if (list) list.style.display = 'none';
             }
         });
+
+        async function logout() {
+            if (confirm('¿Cerrar sesión de administrador?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
