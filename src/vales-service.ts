@@ -278,14 +278,14 @@ class ValesService {
             status: 'pending'
         }
 
-        // 2. Consultar cuántos vales pendientes existen en esta ubicación
+        // 2. Consultar cuántos vales pendientes existen estrictamente en ESTE grupo y ubicación
         const pendingQuery = this.db.prepare(`
             SELECT * FROM vales 
-            WHERE location_code = ? AND status = 'pending' 
+            WHERE group_id = ? AND status = 'pending' 
             ORDER BY timestamp ASC
         `)
 
-        const pendingRows = pendingQuery.all(locationCode) as any[]
+        const pendingRows = pendingQuery.all(params.groupId) as any[]
         const batchTotal = this.config.batchSize || 4
 
         if (pendingRows.length >= batchTotal) {

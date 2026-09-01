@@ -803,7 +803,12 @@
 
             document.getElementById('groupSearchInput').value = selected.name;
             document.getElementById('newGroupName').value = selected.name;
-            const cleanCode = selected.name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5) || 'LOC';
+            
+            // Generar código único evitando palabras genéricas como "DIESEL" o "GRUPO"
+            const words = selected.name.toUpperCase().replace(/[^A-Z0-9 ]/g, '').split(' ').filter(w => w && w !== 'DIESEL' && w !== 'GRUPO' && w !== 'BOT' && w !== 'DE');
+            let cleanCode = (words.length > 0 ? words[0] : selected.name.replace(/[^A-Z0-9]/g, '')).slice(0, 6);
+            if (!cleanCode) cleanCode = 'LOC' + selected.id.slice(-4);
+
             document.getElementById('newGroupCode').value = cleanCode;
             document.getElementById('newGroupId').value = selected.id;
 
