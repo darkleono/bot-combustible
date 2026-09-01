@@ -555,13 +555,15 @@ const main = async () => {
         })
 
         // ⚡ RECEPTOR NATIVO DE BAILEYS (BYPASS BUG BUILDERBOT EN GRUPOS)
-        let socketHookAttached = false
+        let currentSocketVendor: any = null
         const setupDirectBaileysSocket = () => {
-            if (socketHookAttached || !adapterProvider?.vendor?.ev) return
-            socketHookAttached = true
-            logger.info('🔌 Receptor nativo Baileys activado para grupos y chats.', 'SYSTEM')
+            const vendor = adapterProvider?.vendor
+            if (!vendor?.ev) return
+            if (vendor === currentSocketVendor) return
+            currentSocketVendor = vendor
+            logger.info('🔌 Receptor nativo Baileys activado/reconectado para grupos y chats.', 'SYSTEM')
 
-            adapterProvider.vendor.ev.on('messages.upsert', async (data: any) => {
+            vendor.ev.on('messages.upsert', async (data: any) => {
                 const messages = data?.messages || []
                 for (const msg of messages) {
                     if (msg.key?.fromMe) continue
@@ -626,7 +628,11 @@ const main = async () => {
                             continue
                         }
 
-                        const senderName = msg.pushName || 'Conductor'
+                        const rawPush = (msg.pushName || '').trim()
+                        const cleanPush = rawPush.replace(/^[.\s\-_,;:]+$/, '')
+                        const rawPhone = (senderJid ? senderJid.split('@')[0].split(':')[0] : '').trim()
+                        const senderName = cleanPush || (rawPhone ? `Conductor (+${rawPhone})` : 'Conductor')
+
                         const location = valesService.resolveLocation(jid)
                         const locationName = location.name
 
@@ -691,10 +697,15 @@ const main = async () => {
             })
         }
 
-        // Si ya está listo el provider, enganchar de inmediato
+        // Si ya está listo el provider, enganchar de inmediato y vigilar reconexiones
         if (adapterProvider?.vendor?.ev) {
             setupDirectBaileysSocket()
         }
+        setInterval(() => {
+            if (adapterProvider?.vendor?.ev && adapterProvider.vendor !== currentSocketVendor) {
+                setupDirectBaileysSocket()
+            }
+        }, 2000)
 
         adapterProvider.on('auth_failure', (error) => {
             botStatus = '🔴 ERROR DE SESIÓN (REINTENTANDO)'
