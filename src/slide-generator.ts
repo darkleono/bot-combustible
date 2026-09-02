@@ -80,6 +80,7 @@ export async function generateSlide2x2(
             if (fs.existsSync(vale.imagePath)) {
                 try {
                     const resizedImg = await sharp(vale.imagePath)
+                        .rotate() // 🔄 Corrige orientación automáticamente según EXIF
                         .resize({
                             width: CELL_WIDTH,
                             height: CELL_HEIGHT,
