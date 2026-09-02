@@ -181,24 +181,27 @@ class ValesService {
     }
 
     /**
-     * Valida si el caption o texto contiene la palabra clave
+     * Valida si el caption contiene obligatoriamente alguna de las palabras clave configuradas
      */
     public isTriggerMatch(caption: string): boolean {
-        // En modo público o si no hay caption, permitir si es imagen
-        if (!caption || caption.includes('_event_media_')) return true
+        // Exigir obligatoriamente texto en la foto
+        if (!caption || typeof caption !== 'string') return false
 
-        const normalized = caption.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        const clean = caption.trim()
+        if (!clean || clean.startsWith('_event_media_')) return false
+
+        const normalized = clean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
         
-        // Coincidencia con lista oficial o palabras clave comunes (incluso con typos como "combustble")
-        const commonMatches = ['vale', 'combust', 'diesel', 'ticket', 'litros', 'tanque', 'up-', 'upt-', 'up ']
-        if (commonMatches.some(term => normalized.includes(term))) {
-            return true
+        // Coincidir estrictamente con las palabras clave configuradas en el panel web
+        const keywords = (this.config.triggerKeywords || []).map(k => 
+            k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        ).filter(Boolean)
+
+        if (keywords.length === 0) {
+            return normalized.includes('vale combustible') || normalized.includes('vale diesel')
         }
 
-        return this.config.triggerKeywords.some(keyword => {
-            const cleanKeyword = keyword.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
-            return normalized.includes(cleanKeyword)
-        })
+        return keywords.some(keyword => normalized.includes(keyword))
     }
 
     /**
