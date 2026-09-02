@@ -128,7 +128,7 @@ export async function generateSlide2x2(
             </g>
 
             <!-- Footer inferior centrado -->
-            <text x="${MID_X}" y="${PAGE_HEIGHT - 25}" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8" text-anchor="middle" font-weight="600">----- Dleon -----</text>
+            <text x="${MID_X}" y="${PAGE_HEIGHT - 25}" font-family="Arial, sans-serif" font-size="17" fill="#64748b" text-anchor="middle" font-weight="bold" letter-spacing="1">----- Dleon • ${escapeXml(location.name)} -----</text>
         </svg>
         `)
 
