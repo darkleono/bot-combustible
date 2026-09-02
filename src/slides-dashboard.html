@@ -686,7 +686,7 @@
                                 <a href="${s.imageUrl}" download="${s.id}.png" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">📥 PNG</a>
                             </div>
                         </div>
-                    `).reverse().join('');
+                    `).join('');
                 } else {
                     slidesGrid.innerHTML = `<div style="grid-column: 1/-1; padding: 3rem; text-align: center; color: var(--text-dim); background: var(--bg-card); border-radius: 1rem; border: 1px dashed var(--border);">No hay diapositivas generadas aún. Al acumular 4 vales en un grupo se generará la primera.</div>`;
                 }
@@ -705,7 +705,7 @@
                             <td><span class="badge-status ${v.status === 'grouped' ? 'badge-grouped' : 'badge-pending'}">${v.status === 'grouped' ? 'Agrupado' : 'Pendiente'}</span></td>
                             <td><a href="/assets/vales/${v.imagePath.split('/').pop()}" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Ver Foto</a></td>
                         </tr>
-                    `).reverse().join('');
+                    `).join('');
                 } else {
                     tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-dim);">No se han recibido vales todavía.</td></tr>`;
                 }
