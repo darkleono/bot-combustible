@@ -708,19 +708,13 @@ const main = async () => {
                                 try {
                                     const key = msg.key || {}
                                     const altJid = key.remoteJidAlt || ''
-                                    const participantJid = key.participant || ''
-                                    let realTargetJid = jid
-                                    if (altJid && altJid.includes('@s.whatsapp.net')) {
-                                        realTargetJid = altJid
-                                    } else if (jid.endsWith('@lid') && participantJid && participantJid.includes('@s.whatsapp.net')) {
-                                        realTargetJid = participantJid
-                                    }
+                                    const rawPhone = (altJid || senderJid || jid).split('@')[0].replace(/[^0-9]/g, '')
+                                    const destPhone = (rawPhone && rawPhone.length > 5 && !rawPhone.startsWith('250')) ? rawPhone : (jid.split('@')[0])
 
-                                    await adapterProvider.vendor.sendMessage(realTargetJid, { text: 'Listo' }).catch(() => {})
-                                    if (realTargetJid !== jid && jid) {
-                                        await adapterProvider.vendor.sendMessage(jid, { text: 'Listo' }).catch(() => {})
+                                    if (destPhone) {
+                                        await adapterProvider.sendMessage(destPhone, 'Listo', {})
+                                        logger.success(`💬 Mensaje "Listo" enviado a la transferencia al teléfono [${destPhone}]`, 'TRANSFERENCIAS')
                                     }
-                                    logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${realTargetJid}]`, 'TRANSFERENCIAS')
                                 } catch (e) {
                                     logger.error('Error al enviar mensaje "Listo"', e, 'TRANSFERENCIAS')
                                 }

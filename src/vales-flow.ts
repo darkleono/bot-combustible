@@ -82,31 +82,21 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                 type: pipelineType
             })
 
-        // Resolver el destinatario telefónico real (@s.whatsapp.net) evitando IDs de LID
+        // Resolver el número telefónico real para entrega garantizada
         const key = ctx.key || {}
-        const rawJid = key.remoteJid || ctx.from || ''
         const altJid = key.remoteJidAlt || ''
-        const participantJid = key.participant || ''
-
-        let targetRecipient = rawJid
-        if (altJid && altJid.includes('@s.whatsapp.net')) {
-            targetRecipient = altJid
-        } else if (rawJid.endsWith('@lid') && participantJid && participantJid.includes('@s.whatsapp.net')) {
-            targetRecipient = participantJid
-        }
+        const rawPhone = (altJid || senderJid || ctx.from || '').split('@')[0].replace(/[^0-9]/g, '')
+        const destPhone = (rawPhone && rawPhone.length > 5 && !rawPhone.startsWith('250')) ? rawPhone : (chatId.split('@')[0])
 
         if (pipelineType === 'TRANSFERENCIA') {
             // RUTA DE TRANSFERENCIAS: Enviar mensaje natural "Listo"
             try {
-                if (provider?.vendor?.sendMessage) {
-                    await provider.vendor.sendMessage(targetRecipient, { text: 'Listo' })
-                    if (targetRecipient !== rawJid && rawJid) {
-                        await provider.vendor.sendMessage(rawJid, { text: 'Listo' }).catch(() => {})
-                    }
-                } else if (provider?.sendMessage) {
-                    await provider.sendMessage(targetRecipient, 'Listo')
+                if (provider?.sendMessage && destPhone) {
+                    await provider.sendMessage(destPhone, 'Listo', {})
+                } else if (flowDynamic) {
+                    await flowDynamic('Listo')
                 }
-                logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${targetRecipient}]`, 'TRANSFERENCIAS')
+                logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${destPhone}]`, 'TRANSFERENCIAS')
             } catch (msgErr) {
                 logger.error('Error al enviar mensaje "Listo"', msgErr, 'TRANSFERENCIAS')
             }
