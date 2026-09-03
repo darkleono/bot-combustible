@@ -28,6 +28,11 @@ export interface SlideResult {
     vales: ValeRecord[]
 }
 
+export interface GenerateSlideOptions {
+    footerText?: string
+    slidePrefix?: string
+}
+
 /**
  * 🎨 Generador visual de diapositiva 2x2 Minimalista en Hoja Carta Horizontal (2200x1700)
  * Sin textos, sin cabeceras, únicamente los 4 vales limpios en cada cuadrante.
@@ -35,14 +40,16 @@ export interface SlideResult {
 export async function generateSlide2x2(
     location: { name: string; code: string; id: string },
     vales: ValeRecord[],
-    slidesDir: string
+    slidesDir: string,
+    options?: GenerateSlideOptions
 ): Promise<SlideResult> {
     if (!fs.existsSync(slidesDir)) {
         fs.mkdirSync(slidesDir, { recursive: true })
     }
 
-    const slideCount = getNextSlideNumber(slidesDir, location.code)
-    const slideId = `SLIDE-${location.code}-${String(slideCount).padStart(3, '0')}`
+    const prefix = options?.slidePrefix || `SLIDE-${location.code}-`
+    const slideCount = getNextSlideNumber(slidesDir, prefix)
+    const slideId = `${prefix}${String(slideCount).padStart(3, '0')}`
     const outputFilename = `${slideId}.png`
     const outputPath = path.join(slidesDir, outputFilename)
 
@@ -128,7 +135,7 @@ export async function generateSlide2x2(
             </g>
 
             <!-- Footer inferior centrado -->
-            <text x="${MID_X}" y="${PAGE_HEIGHT - 25}" font-family="Arial, sans-serif" font-size="17" fill="#64748b" text-anchor="middle" font-weight="bold" letter-spacing="1">----- Dleon • ${escapeXml(location.name)} -----</text>
+            <text x="${MID_X}" y="${PAGE_HEIGHT - 25}" font-family="Arial, sans-serif" font-size="17" fill="#64748b" text-anchor="middle" font-weight="bold" letter-spacing="1">----- ${escapeXml(options?.footerText || `Dleon • ${location.name}`)} -----</text>
         </svg>
         `)
 
@@ -167,10 +174,9 @@ export async function generateSlide2x2(
     }
 }
 
-function getNextSlideNumber(slidesDir: string, locationCode: string): number {
+function getNextSlideNumber(slidesDir: string, prefix: string): number {
     if (!fs.existsSync(slidesDir)) return 1
     const files = fs.readdirSync(slidesDir)
-    const prefix = `SLIDE-${locationCode}-`
     const numbers = files
         .filter(f => f.startsWith(prefix) && f.endsWith('.png'))
         .map(f => {

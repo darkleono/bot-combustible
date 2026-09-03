@@ -10,15 +10,20 @@ export interface GroupConfig {
     code: string
 }
 
+export type PipelineType = 'VALE' | 'TRANSFERENCIA'
+
 export interface ValesConfig {
     accessMode: 'restricted' | 'public' // 'restricted' = solo allowedGroups, 'public' = cualquier grupo/chat
     batchSize: number
     triggerKeywords: string[]
+    transferTriggerKeywords?: string[]
     allowedGroups: GroupConfig[]
     sendSlideToGroup: boolean
     dbPath: string
     storagePath: string
     slidesPath: string
+    transferStoragePath?: string
+    transferSlidesPath?: string
 }
 
 export interface SlideRecord {
@@ -29,6 +34,7 @@ export interface SlideRecord {
     imagePath: string
     imageUrl: string
     valesCount: number
+    pipelineType?: string
 }
 
 const CONFIG_FILE = path.join(process.cwd(), 'src', 'vales.config.json')
@@ -61,6 +67,10 @@ class ValesService {
             accessMode: 'restricted',
             batchSize: 4,
             triggerKeywords: ['vale combustible', 'vale diesel', 'ticket combustible', '#vale', 'vale'],
+            transferTriggerKeywords: [
+                'comprobante transfer', 'comprobante transferencia', 'transferencia',
+                '#transferencia', '#spei', 'spei', 'deposito', '#pago'
+            ],
             allowedGroups: [
                 { id: '120363000000000001@g.us', name: 'Ubicación 1 - Base Central', code: 'BASE1' },
                 { id: '120363000000000002@g.us', name: 'Ubicación 2 - Patio Norte', code: 'NORTE' }
@@ -68,7 +78,9 @@ class ValesService {
             sendSlideToGroup: true,
             dbPath: 'database/vales.sqlite',
             storagePath: 'database/vales',
-            slidesPath: 'database/slides'
+            slidesPath: 'database/slides',
+            transferStoragePath: 'database/transferencias',
+            transferSlidesPath: 'database/slides_transferencias'
         }
         return this.config
     }
@@ -113,6 +125,7 @@ class ValesService {
                 slide_id TEXT,
                 slide_slot INTEGER,
                 status TEXT NOT NULL DEFAULT 'pending',
+                pipeline_type TEXT NOT NULL DEFAULT 'VALE',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         `)
@@ -126,13 +139,23 @@ class ValesService {
                 created_at TEXT NOT NULL,
                 image_path TEXT NOT NULL,
                 image_url TEXT NOT NULL,
-                vales_count INTEGER NOT NULL DEFAULT 4
+                vales_count INTEGER NOT NULL DEFAULT 4,
+                pipeline_type TEXT NOT NULL DEFAULT 'VALE'
             );
         `)
+
+        // Migración suave: Agregar columna pipeline_type si no existía previamente
+        try {
+            this.db.exec(`ALTER TABLE vales ADD COLUMN pipeline_type TEXT NOT NULL DEFAULT 'VALE';`)
+        } catch {}
+        try {
+            this.db.exec(`ALTER TABLE slides ADD COLUMN pipeline_type TEXT NOT NULL DEFAULT 'VALE';`)
+        } catch {}
 
         // Índices para búsquedas instantáneas
         this.db.exec(`
             CREATE INDEX IF NOT EXISTS idx_vales_loc_status ON vales(location_code, status);
+            CREATE INDEX IF NOT EXISTS idx_vales_type_status ON vales(pipeline_type, status);
             CREATE INDEX IF NOT EXISTS idx_vales_group ON vales(group_id);
             CREATE INDEX IF NOT EXISTS idx_vales_timestamp ON vales(timestamp);
             CREATE INDEX IF NOT EXISTS idx_vales_slide ON vales(slide_id);
@@ -144,8 +167,13 @@ class ValesService {
     private ensureDirectories(): void {
         const valesDir = path.join(process.cwd(), this.config.storagePath || 'database/vales')
         const slidesDir = path.join(process.cwd(), this.config.slidesPath || 'database/slides')
+        const transDir = path.join(process.cwd(), this.config.transferStoragePath || 'database/transferencias')
+        const transSlidesDir = path.join(process.cwd(), this.config.transferSlidesPath || 'database/slides_transferencias')
+
         if (!fs.existsSync(valesDir)) fs.mkdirSync(valesDir, { recursive: true })
         if (!fs.existsSync(slidesDir)) fs.mkdirSync(slidesDir, { recursive: true })
+        if (!fs.existsSync(transDir)) fs.mkdirSync(transDir, { recursive: true })
+        if (!fs.existsSync(transSlidesDir)) fs.mkdirSync(transSlidesDir, { recursive: true })
     }
 
     /**
@@ -170,7 +198,7 @@ class ValesService {
         if (found) return found
 
         // Si es modo público y no está en la lista:
-        const cleanName = groupNameFallback || `Grupo ${groupId.split('@')[0].slice(-4)}`
+        const cleanName = groupNameFallback || `Chat ${groupId.split('@')[0].slice(-4)}`
         const safeCode = cleanName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5) || 'LOC'
 
         return {
@@ -181,31 +209,62 @@ class ValesService {
     }
 
     /**
-     * Valida si el caption contiene obligatoriamente alguna de las palabras clave configuradas
+     * Valida si el caption coincide con los triggers de Vales de Combustible
      */
-    public isTriggerMatch(caption: string): boolean {
-        // Exigir obligatoriamente texto en la foto
+    public isValeMatch(caption: string): boolean {
         if (!caption || typeof caption !== 'string') return false
-
         const clean = caption.trim()
         if (!clean || clean.startsWith('_event_media_')) return false
 
         const normalized = clean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
-        
-        // Coincidir estrictamente con las palabras clave configuradas en el panel web
         const keywords = (this.config.triggerKeywords || []).map(k => 
             k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
         ).filter(Boolean)
 
         if (keywords.length === 0) {
-            return normalized.includes('vale combustible') || normalized.includes('vale diesel')
+            return normalized.includes('vale combustible') || normalized.includes('vale diesel') || normalized.includes('vale')
         }
 
         return keywords.some(keyword => normalized.includes(keyword))
     }
 
     /**
-     * Procesa y registra un vale en SQLite
+     * Valida si el caption coincide con los triggers de Transferencias Bancarias
+     */
+    public isTransferMatch(caption: string): boolean {
+        if (!caption || typeof caption !== 'string') return false
+        const clean = caption.trim()
+        if (!clean || clean.startsWith('_event_media_')) return false
+
+        const normalized = clean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        const keywords = (this.config.transferTriggerKeywords || [
+            'comprobante transfer', 'comprobante transferencia', 'transferencia',
+            '#transferencia', '#spei', 'spei', 'deposito', '#pago'
+        ]).map(k => 
+            k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        ).filter(Boolean)
+
+        return keywords.some(keyword => normalized.includes(keyword))
+    }
+
+    /**
+     * Detecta automáticamente a qué pipeline pertenece el caption recibido
+     */
+    public detectPipeline(caption: string): PipelineType | null {
+        if (this.isTransferMatch(caption)) return 'TRANSFERENCIA'
+        if (this.isValeMatch(caption)) return 'VALE'
+        return null
+    }
+
+    /**
+     * Compatibilidad hacia atrás
+     */
+    public isTriggerMatch(caption: string): boolean {
+        return this.detectPipeline(caption) !== null
+    }
+
+    /**
+     * Procesa y registra un ítem documental (Vale o Transferencia) en SQLite
      */
     public async processVoucher(params: {
         groupId: string
@@ -214,6 +273,7 @@ class ValesService {
         caption: string
         rawImageBufferOrPath: Buffer | string
         groupNameFallback?: string
+        type?: PipelineType
     }): Promise<{
         vale: ValeRecord
         isSlideGenerated: boolean
@@ -225,15 +285,25 @@ class ValesService {
             throw new Error(`Acceso denegado para el chat/grupo: ${params.groupId}`)
         }
 
+        const pipelineType = params.type || this.detectPipeline(params.caption) || 'VALE'
         const location = this.resolveLocation(params.groupId, params.groupNameFallback)
         const locationCode = location.code
-        const nextIdNumber = this.getNextValeNumber(locationCode)
-        const valeId = `VALE-${locationCode}-${String(nextIdNumber).padStart(4, '0')}`
+        
+        const nextIdNumber = this.getNextItemNumber(locationCode, pipelineType)
+        const prefix = pipelineType === 'TRANSFERENCIA' ? 'TRANS' : 'VALE'
+        const itemId = `${prefix}-${locationCode}-${String(nextIdNumber).padStart(4, '0')}`
 
-        // Guardar archivo físico de la imagen
-        const valesDir = path.join(process.cwd(), this.config.storagePath || 'database/vales')
-        const imageFilename = `${valeId}.jpg`
-        const imagePath = path.join(valesDir, imageFilename)
+        // Configuración de rutas según pipeline
+        const storageDir = pipelineType === 'TRANSFERENCIA'
+            ? path.join(process.cwd(), this.config.transferStoragePath || 'database/transferencias')
+            : path.join(process.cwd(), this.config.storagePath || 'database/vales')
+
+        const slidesDir = pipelineType === 'TRANSFERENCIA'
+            ? path.join(process.cwd(), this.config.transferSlidesPath || 'database/slides_transferencias')
+            : path.join(process.cwd(), this.config.slidesPath || 'database/slides')
+
+        const imageFilename = `${itemId}.jpg`
+        const imagePath = path.join(storageDir, imageFilename)
 
         if (typeof params.rawImageBufferOrPath === 'string') {
             fs.copyFileSync(params.rawImageBufferOrPath, imagePath)
@@ -244,16 +314,16 @@ class ValesService {
         const cleanPhone = params.senderJid.split('@')[0]
         const nowIso = new Date().toISOString()
 
-        // 1. Insertar Vale en SQLite
+        // 1. Insertar Registro en SQLite
         const insertStmt = this.db.prepare(`
             INSERT INTO vales (
                 id, timestamp, group_id, location_name, location_code, 
-                sender_name, sender_phone, caption, image_path, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                sender_name, sender_phone, caption, image_path, status, pipeline_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
         `)
 
         insertStmt.run(
-            valeId,
+            itemId,
             nowIso,
             params.groupId,
             location.name,
@@ -261,13 +331,14 @@ class ValesService {
             params.senderName || 'Conductor',
             cleanPhone,
             params.caption || '',
-            imagePath
+            imagePath,
+            pipelineType
         )
 
-        logger.info(`📸 Vale guardado en SQLite: #${valeId} [${location.name}]`, 'VALES')
+        logger.info(`📸 [${pipelineType}] guardado en SQLite: #${itemId} [${location.name}]`, 'SQLITE')
 
         const valeRecord: ValeRecord = {
-            id: valeId,
+            id: itemId,
             timestamp: nowIso,
             groupId: params.groupId,
             locationName: location.name,
@@ -281,14 +352,14 @@ class ValesService {
             status: 'pending'
         }
 
-        // 2. Consultar cuántos vales pendientes existen estrictamente en ESTE grupo y ubicación
+        // 2. Consultar cuántos ítems pendientes existen estrictamente en ESTE pipeline y grupo/ubicación
         const pendingQuery = this.db.prepare(`
             SELECT * FROM vales 
-            WHERE group_id = ? AND status = 'pending' 
+            WHERE group_id = ? AND pipeline_type = ? AND status = 'pending' 
             ORDER BY timestamp ASC
         `)
 
-        const pendingRows = pendingQuery.all(params.groupId) as any[]
+        const pendingRows = pendingQuery.all(params.groupId, pipelineType) as any[]
         const batchTotal = this.config.batchSize || 4
 
         if (pendingRows.length >= batchTotal) {
@@ -307,15 +378,29 @@ class ValesService {
                 status: 'pending' as const
             }))
 
-            logger.info(`✨ Lote de ${batchTotal} alcanzado para [${location.name}]. Generando diapositiva...`, 'VALES')
+            logger.info(`✨ Lote de ${batchTotal} alcanzado para [${pipelineType} - ${location.name}]. Generando diapositiva...`, 'SLIDES')
 
-            const slidesDir = path.join(process.cwd(), this.config.slidesPath || 'database/slides')
-            const slideResult = await generateSlide2x2(location, batchToGroup, slidesDir)
+            const slidePrefix = pipelineType === 'TRANSFERENCIA'
+                ? `SLIDE-TRANS-${location.code}-`
+                : `SLIDE-${location.code}-`
+
+            const footerText = pipelineType === 'TRANSFERENCIA'
+                ? `Dleon • Transferencias Bancarias • ${location.name}`
+                : `Dleon • ${location.name}`
+
+            const slideResult = await generateSlide2x2(location, batchToGroup, slidesDir, {
+                slidePrefix,
+                footerText
+            })
+
+            const slideUrl = pipelineType === 'TRANSFERENCIA'
+                ? `/assets/slides_transferencias/${path.basename(slideResult.slideImagePath)}`
+                : `/assets/slides/${path.basename(slideResult.slideImagePath)}`
 
             // 3. Registrar Diapositiva en SQLite
             const insertSlideStmt = this.db.prepare(`
-                INSERT INTO slides (id, location_code, location_name, created_at, image_path, image_url, vales_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO slides (id, location_code, location_name, created_at, image_path, image_url, vales_count, pipeline_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `)
 
             insertSlideStmt.run(
@@ -324,11 +409,12 @@ class ValesService {
                 location.name,
                 slideResult.createdAt,
                 slideResult.slideImagePath,
-                slideResult.slideRelativeUrl,
-                batchTotal
+                slideUrl,
+                batchTotal,
+                pipelineType
             )
 
-            // 4. Actualizar los 4 vales en SQLite
+            // 4. Actualizar los 4 ítems en SQLite
             const updateValeStmt = this.db.prepare(`
                 UPDATE vales 
                 SET slide_id = ?, slide_slot = ?, status = 'grouped' 
@@ -342,7 +428,10 @@ class ValesService {
             return {
                 vale: valeRecord,
                 isSlideGenerated: true,
-                slide: slideResult,
+                slide: {
+                    ...slideResult,
+                    slideRelativeUrl: slideUrl
+                },
                 batchCount: batchTotal,
                 batchTotal
             }
@@ -356,16 +445,23 @@ class ValesService {
         }
     }
 
-    private getNextValeNumber(locationCode: string): number {
-        const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM vales WHERE location_code = ?')
-        const result = countStmt.get(locationCode) as { total: number }
+    private getNextItemNumber(locationCode: string, pipelineType: PipelineType): number {
+        const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM vales WHERE location_code = ? AND pipeline_type = ?')
+        const result = countStmt.get(locationCode, pipelineType) as { total: number }
         return (result?.total || 0) + 1
     }
 
-    public getStats(): { totalVales: number; totalSlides: number; pendingVales: number } {
-        const valesCount = (this.db.prepare('SELECT COUNT(*) as c FROM vales').get() as any)?.c || 0
-        const slidesCount = (this.db.prepare('SELECT COUNT(*) as c FROM slides').get() as any)?.c || 0
-        const pendingCount = (this.db.prepare("SELECT COUNT(*) as c FROM vales WHERE status = 'pending'").get() as any)?.c || 0
+    public getStats(pipelineType?: PipelineType): { totalVales: number; totalSlides: number; pendingVales: number } {
+        const typeFilter = pipelineType ? 'WHERE pipeline_type = ?' : ''
+        const pendingFilter = pipelineType ? "WHERE status = 'pending' AND pipeline_type = ?" : "WHERE status = 'pending'"
+        
+        const valesStmt = this.db.prepare(`SELECT COUNT(*) as c FROM vales ${typeFilter}`)
+        const slidesStmt = this.db.prepare(`SELECT COUNT(*) as c FROM slides ${typeFilter}`)
+        const pendingStmt = this.db.prepare(`SELECT COUNT(*) as c FROM vales ${pendingFilter}`)
+
+        const valesCount = pipelineType ? (valesStmt.get(pipelineType) as any)?.c || 0 : (valesStmt.get() as any)?.c || 0
+        const slidesCount = pipelineType ? (slidesStmt.get(pipelineType) as any)?.c || 0 : (slidesStmt.get() as any)?.c || 0
+        const pendingCount = pipelineType ? (pendingStmt.get(pipelineType) as any)?.c || 0 : (pendingStmt.get() as any)?.c || 0
 
         return {
             totalVales: valesCount,
@@ -378,9 +474,20 @@ class ValesService {
         return this.isAllowed(groupId)
     }
 
-    public getAllVales(limit = 100, offset = 0): ValeRecord[] {
-        const stmt = this.db.prepare('SELECT * FROM vales ORDER BY timestamp DESC LIMIT ? OFFSET ?')
-        const rows = stmt.all(limit, offset) as any[]
+    public getAllVales(limit = 100, offset = 0, pipelineType?: PipelineType): (ValeRecord & { pipelineType: string })[] {
+        let query = 'SELECT * FROM vales'
+        const params: any[] = []
+
+        if (pipelineType) {
+            query += ' WHERE pipeline_type = ?'
+            params.push(pipelineType)
+        }
+
+        query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?'
+        params.push(limit, offset)
+
+        const stmt = this.db.prepare(query)
+        const rows = stmt.all(...params) as any[]
         return rows.map(r => ({
             id: r.id,
             timestamp: r.timestamp,
@@ -393,13 +500,25 @@ class ValesService {
             imagePath: r.image_path,
             slideId: r.slide_id,
             slideSlot: r.slide_slot,
-            status: r.status
+            status: r.status,
+            pipelineType: r.pipeline_type || 'VALE'
         }))
     }
 
-    public getAllSlides(limit = 50, offset = 0): SlideRecord[] {
-        const stmt = this.db.prepare('SELECT * FROM slides ORDER BY created_at DESC LIMIT ? OFFSET ?')
-        const rows = stmt.all(limit, offset) as any[]
+    public getAllSlides(limit = 50, offset = 0, pipelineType?: PipelineType): SlideRecord[] {
+        let query = 'SELECT * FROM slides'
+        const params: any[] = []
+
+        if (pipelineType) {
+            query += ' WHERE pipeline_type = ?'
+            params.push(pipelineType)
+        }
+
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+        params.push(limit, offset)
+
+        const stmt = this.db.prepare(query)
+        const rows = stmt.all(...params) as any[]
         return rows.map(r => ({
             id: r.id,
             locationCode: r.location_code,
@@ -407,26 +526,41 @@ class ValesService {
             createdAt: r.created_at,
             imagePath: r.image_path,
             imageUrl: r.image_url,
-            valesCount: r.vales_count
+            valesCount: r.vales_count,
+            pipelineType: r.pipeline_type || 'VALE'
         }))
     }
 
-    public exportCsv(): string {
-        const stmt = this.db.prepare('SELECT * FROM vales ORDER BY timestamp ASC')
-        const rows = stmt.all() as any[]
-        const headers = ['ID Vale', 'Fecha y Hora', 'Ubicación', 'Remitente', 'Teléfono', 'Texto/Caption', 'ID Diapositiva', 'Ranura', 'Estatus', 'Archivo Imagen']
-        const csvRows = rows.map(v => [
-            v.id,
-            v.timestamp,
-            `"${v.location_name}"`,
-            `"${v.sender_name}"`,
-            v.sender_phone,
-            `"${(v.caption || '').replace(/"/g, '""')}"`,
-            v.slide_id || 'PENDIENTE',
-            v.slide_slot || '',
-            v.status,
-            `/assets/vales/${path.basename(v.image_path)}`
-        ])
+    public exportCsv(pipelineType?: PipelineType): string {
+        let query = 'SELECT * FROM vales'
+        const params: any[] = []
+
+        if (pipelineType) {
+            query += ' WHERE pipeline_type = ?'
+            params.push(pipelineType)
+        }
+
+        query += ' ORDER BY timestamp ASC'
+        const stmt = this.db.prepare(query)
+        const rows = stmt.all(...params) as any[]
+
+        const headers = ['ID', 'Tipo', 'Fecha y Hora', 'Ubicación / Chat', 'Remitente', 'Teléfono', 'Texto/Caption', 'ID Diapositiva', 'Ranura', 'Estatus', 'Archivo Imagen']
+        const csvRows = rows.map(v => {
+            const folder = v.pipeline_type === 'TRANSFERENCIA' ? 'transferencias' : 'vales'
+            return [
+                v.id,
+                v.pipeline_type || 'VALE',
+                v.timestamp,
+                `"${v.location_name}"`,
+                `"${v.sender_name}"`,
+                v.sender_phone,
+                `"${(v.caption || '').replace(/"/g, '""')}"`,
+                v.slide_id || 'PENDIENTE',
+                v.slide_slot || '',
+                v.status,
+                `/assets/${folder}/${path.basename(v.image_path)}`
+            ]
+        })
 
         return '\uFEFF' + [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n')
     }

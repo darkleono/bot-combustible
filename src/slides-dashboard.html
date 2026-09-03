@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Módulo de Vales y Diapositivas • Grupo Ortiz</title>
+    <title>Módulo Multi-Pipeline • Vales y Transferencias • Grupo Ortiz</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -15,6 +15,7 @@
             --primary-hover: #7dd3fc;
             --accent: #10b981;
             --accent-hover: #34d399;
+            --warning: #f59e0b;
             --danger: #ef4444;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
@@ -69,6 +70,7 @@
         .header-actions {
             display: flex;
             gap: 0.75rem;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -126,7 +128,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.25rem;
-            margin-bottom: 2.5rem;
+            margin-bottom: 2rem;
         }
 
         .metric-card {
@@ -167,6 +169,39 @@
             font-size: 0.85rem;
             color: var(--text-muted);
             margin-top: 0.5rem;
+        }
+
+        /* FILTER BAR */
+        .filter-bar {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            background: var(--bg-card);
+            padding: 0.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-pill {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .filter-pill.active {
+            background: var(--primary);
+            color: #020617;
         }
 
         /* SECTION TITLES */
@@ -249,8 +284,8 @@
         .slide-preview img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s;
+            object-fit: contain;
+            transition: transform 0.3s ease;
         }
 
         .slide-preview:hover img {
@@ -267,13 +302,12 @@
         .slide-title {
             font-weight: 800;
             font-size: 1rem;
-            color: var(--text-main);
+            margin-bottom: 0.25rem;
         }
 
         .slide-date {
             font-size: 0.8rem;
             color: var(--text-dim);
-            margin-top: 0.2rem;
         }
 
         /* TABLE */
@@ -281,46 +315,75 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 1rem;
-            overflow-x: auto;
+            overflow: hidden;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
         }
 
         th {
             background: rgba(15, 23, 42, 0.8);
-            padding: 1rem;
-            color: var(--text-dim);
+            padding: 1rem 1.25rem;
+            font-weight: 700;
+            font-size: 0.75rem;
             text-transform: uppercase;
-            font-size: 0.7rem;
-            font-weight: 800;
             letter-spacing: 0.5px;
+            color: var(--text-dim);
             border-bottom: 1px solid var(--border);
         }
 
         td {
-            padding: 1rem;
+            padding: 1rem 1.25rem;
             border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+            color: var(--text-muted);
+        }
+
+        tr:hover td {
+            background: var(--bg-card-hover);
             color: var(--text-main);
         }
 
-        tr:last-child td { border-bottom: none; }
-        tr:hover td { background: rgba(30, 41, 59, 0.4); }
+        .badge-type-vale {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            display: inline-block;
+        }
+
+        .badge-type-trans {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent);
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            display: inline-block;
+        }
 
         .badge-status {
             padding: 0.25rem 0.6rem;
-            border-radius: 9999px;
-            font-size: 0.7rem;
-            font-weight: 800;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 700;
             text-transform: uppercase;
         }
 
-        .badge-grouped { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid rgba(16, 185, 129, 0.3); }
-        .badge-pending { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-grouped {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent);
+        }
+
+        .badge-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
 
         /* CONFIG FORM */
         .config-box {
@@ -337,17 +400,15 @@
 
         .form-group label {
             display: block;
-            font-size: 0.8rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            color: var(--primary);
+            font-weight: 700;
+            font-size: 0.9rem;
             margin-bottom: 0.5rem;
-            letter-spacing: 0.5px;
+            color: var(--text-main);
         }
 
         .form-control {
             width: 100%;
-            background: var(--bg-main);
+            background: #020617;
             border: 1px solid var(--border);
             border-radius: 0.5rem;
             padding: 0.75rem 1rem;
@@ -361,27 +422,35 @@
             border-color: var(--primary);
         }
 
-        .group-card {
-            background: var(--bg-main);
+        .groups-table {
+            width: 100%;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
             border: 1px solid var(--border);
-            border-radius: 0.75rem;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
+        }
+
+        .group-card {
+            background: rgba(2, 6, 23, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
             display: grid;
             grid-template-columns: 2fr 1fr 2.5fr auto;
-            gap: 0.75rem;
+            gap: 1rem;
             align-items: center;
         }
 
         .group-add-box {
-            background: rgba(56, 189, 248, 0.05);
-            border: 1px dashed var(--primary);
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px dashed var(--border);
             border-radius: 0.75rem;
             padding: 1.25rem;
             margin-top: 1rem;
         }
 
-        /* SEARCHABLE COMBOBOX */
+        /* BUSCADOR INTERACTIVO */
         .searchable-select-container {
             position: relative;
             margin-bottom: 1rem;
@@ -392,33 +461,29 @@
             top: 100%;
             left: 0;
             right: 0;
-            max-height: 260px;
-            overflow-y: auto;
-            background: var(--bg-card);
+            background: #0f172a;
             border: 1px solid var(--primary);
             border-radius: 0.5rem;
-            z-index: 100;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 50;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
             display: none;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-            margin-top: 0.35rem;
+            margin-top: 0.25rem;
         }
 
         .search-result-item {
             padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
             cursor: pointer;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.4);
             display: flex;
             justify-content: space-between;
             align-items: center;
             transition: background 0.15s;
         }
 
-        .search-result-item:last-child {
-            border-bottom: none;
-        }
-
         .search-result-item:hover {
-            background: var(--bg-card-hover);
+            background: #1e293b;
         }
 
         .search-result-title {
@@ -431,7 +496,6 @@
             font-size: 0.75rem;
             color: var(--text-dim);
             font-family: monospace;
-            margin-top: 0.2rem;
         }
 
         /* MODAL */
@@ -439,74 +503,94 @@
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 9999;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
             align-items: center;
             justify-content: center;
             padding: 2rem;
         }
 
         .modal.active { display: flex; }
-        .modal img { max-width: 90vw; max-height: 90vh; border-radius: 0.5rem; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
+
+        .modal img {
+            max-width: 95%;
+            max-height: 90vh;
+            border-radius: 0.5rem;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+
         .modal-close {
             position: absolute;
-            top: 1.5rem; right: 2rem;
-            color: white;
+            top: 1.5rem;
+            right: 2rem;
             font-size: 2rem;
+            color: white;
             cursor: pointer;
-            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- HEADER -->
         <header>
             <div>
                 <div class="brand-title">
-                    ⛽ Control de Vales de Combustible
-                    <span class="brand-badge">Lotes 2x2</span>
+                    <span>📑 Multi-Pipeline Core</span>
+                    <span class="brand-badge">Vales & Transferencias 2x2</span>
                 </div>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.25rem;">
-                    Grupo Ortiz • Recepción automatizada en grupos de WhatsApp y generación de diapositivas
-                </p>
+                <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.25rem;">
+                    Grupo Ortiz • Control Unificado de Combustible y Comprobantes Bancarios
+                </div>
             </div>
             <div class="header-actions">
-                <a href="/api/vales/export.csv" class="btn">📥 Descargar CSV (Excel)</a>
+                <a href="/api/vales/export.csv?type=VALE" class="btn" style="background: var(--primary);">📥 CSV Vales</a>
+                <a href="/api/vales/export.csv?type=TRANSFERENCIA" class="btn btn-accent">📥 CSV Transferencias</a>
                 <a href="/" class="btn btn-outline">🏠 Volver al Core</a>
-                <button type="button" onclick="logout()" class="btn btn-danger" style="padding: 0.65rem 1rem;">🚪 Salir</button>
+                <button class="btn btn-danger" onclick="logout()">🚪 Salir</button>
             </div>
         </header>
 
-        <!-- MÉTRICAS SUPERIORES -->
+        <!-- FILTROS MULTI-PIPELINE -->
+        <div class="filter-bar">
+            <span style="font-size: 0.8rem; font-weight: 800; color: var(--text-dim); padding-left: 0.5rem; text-transform: uppercase;">
+                Vista Activa:
+            </span>
+            <button class="filter-pill active" id="filterAll" onclick="setPipelineFilter('ALL')">📑 Todos los Documentos</button>
+            <button class="filter-pill" id="filterVale" onclick="setPipelineFilter('VALE')">⛽ Vales de Combustible</button>
+            <button class="filter-pill" id="filterTrans" onclick="setPipelineFilter('TRANSFERENCIA')">💳 Transferencias Bancarias</button>
+        </div>
+
+        <!-- METRICS -->
         <div class="metrics-grid">
             <div class="metric-card">
-                <div class="metric-label">Total Vales Recibidos</div>
+                <div class="metric-label">Total Documentos Capturados</div>
                 <div class="metric-value" id="valesCount">0</div>
-                <div class="metric-sub">Capturados desde WhatsApp</div>
+                <div class="metric-sub">Registrados en SQLite</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Diapositivas Generadas</div>
+                <div class="metric-label">Diapositivas Compiladas (2x2)</div>
                 <div class="metric-value" id="slidesCount">0</div>
-                <div class="metric-sub">Lotes de 4 vales completados</div>
+                <div class="metric-sub">Lotes de 4 completados</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Vales en Acumulación</div>
+                <div class="metric-label">Documentos en Acumulación</div>
                 <div class="metric-value" id="pendingCount">0</div>
-                <div class="metric-sub" id="pendingDetail">Esperando completar lote de 4</div>
+                <div class="metric-sub">Esperando completar lote de 4</div>
             </div>
         </div>
 
-        <!-- PESTAÑAS -->
+        <!-- TABS -->
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('slidesTab')">🖼️ Diapositivas 2x2</button>
-            <button class="tab-btn" onclick="switchTab('valesTab')">📋 Registro de Vales</button>
-            <button class="tab-btn" onclick="switchTab('configTab')">⚙️ Panel de Configuración y Grupos</button>
+            <button class="tab-btn" onclick="switchTab('valesTab')">📋 Registro de Documentos</button>
+            <button class="tab-btn" onclick="switchTab('configTab')">⚙️ Configuración y Grupos</button>
         </div>
 
         <!-- TAB 1: DIAPOSITIVAS -->
         <div id="slidesTab" class="tab-content active">
             <div class="section-header">
-                <h2 class="section-title">Diapositivas Listas para Oficina</h2>
+                <h2 class="section-title">Diapositivas 2x2 Listas para Oficina</h2>
                 <button class="btn btn-outline" onclick="loadData()">🔄 Actualizar</button>
             </div>
             <div class="slides-grid" id="slidesContainer">
@@ -514,18 +598,19 @@
             </div>
         </div>
 
-        <!-- TAB 2: VALES -->
+        <!-- TAB 2: VALES Y TRANSFERENCIAS -->
         <div id="valesTab" class="tab-content">
             <div class="section-header">
-                <h2 class="section-title">Historial y Conciliación de Vales</h2>
+                <h2 class="section-title">Historial y Conciliación Documental</h2>
             </div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
-                            <th>ID Vale</th>
+                            <th>ID</th>
+                            <th>Tipo</th>
                             <th>Fecha</th>
-                            <th>Ubicación</th>
+                            <th>Ubicación / Chat</th>
                             <th>Remitente</th>
                             <th>Texto / Caption</th>
                             <th>Diapositiva</th>
@@ -543,43 +628,43 @@
         <!-- TAB 3: CONFIGURACIÓN VISUAL -->
         <div id="configTab" class="tab-content">
             <div class="config-box">
-                <h2 class="section-title" style="margin-bottom: 1.5rem;">⚙️ Configuración Operativa de WhatsApp</h2>
+                <h2 class="section-title" style="margin-bottom: 1.5rem;">⚙️ Configuración de Triggers y Grupos</h2>
                 
                 <form id="configForm" onsubmit="saveConfig(event)">
                     
                     <!-- SELECTOR DE MODO -->
                     <div class="form-group">
-                        <label for="accessModeSelect">1. Modo de Control de Acceso</label>
+                        <label for="accessModeSelect">1. Modo de Control de Acceso (Grupos)</label>
                         <select id="accessModeSelect" class="form-control" onchange="toggleGroupSection()" style="font-weight: bold;">
-                            <option value="public">🌍 MODO PÚBLICO (Acepta vales en todos los chats y grupos)</option>
+                            <option value="public">🌍 MODO PÚBLICO (Acepta en todos los chats y grupos)</option>
                             <option value="restricted">🔒 MODO RESTRINGIDO (Solo en los grupos autorizados de la lista)</option>
                         </select>
+                    </div>
+
+                    <!-- PALABRAS CLAVE VALES -->
+                    <div class="form-group">
+                        <label for="triggerKeywords">2. Triggers de Vales de Combustible (Grupos y Privados)</label>
+                        <input type="text" id="triggerKeywords" class="form-control" placeholder="vale combustible, vale diesel, #vale, ticket">
                         <small style="color: var(--text-dim); display:block; margin-top: 0.35rem;">
-                            En <strong>Modo Público</strong> el bot responderá a cualquier grupo donde lo agreguen. En <strong>Modo Restringido</strong>, ignorará mensajes fuera de la lista.
+                            Separa las palabras clave por coma.
                         </small>
                     </div>
 
-                    <!-- PALABRAS CLAVE -->
+                    <!-- PALABRAS CLAVE TRANSFERENCIAS -->
                     <div class="form-group">
-                        <label for="triggerKeywords">2. Palabras Clave de Disparo (Triggers)</label>
-                        <input type="text" id="triggerKeywords" class="form-control" placeholder="vale combustible, vale diesel, #vale, ticket">
+                        <label for="transferTriggerKeywords">3. Triggers de Transferencias Bancarias (Chats Privados Salientes)</label>
+                        <input type="text" id="transferTriggerKeywords" class="form-control" placeholder="comprobante transfer, comprobante transferencia, #transferencia, #spei">
                         <small style="color: var(--text-dim); display:block; margin-top: 0.35rem;">
-                            El bot captura la foto cuando el pie de foto contiene alguna de estas palabras (separadas por coma).
+                            Se activan cuando la coordinadora envía o recibe fotos bancarias con estos textos.
                         </small>
                     </div>
 
                     <!-- GESTOR DE GRUPOS -->
                     <div class="form-group" id="groupsContainerBox">
-                        <label>3. Grupos Autorizados y Asignación de Ubicación</label>
-                        <p style="color: var(--text-dim); font-size: 0.8rem; margin-bottom: 1rem;">
-                            Lista de grupos de WhatsApp autorizados con su nombre de ubicación y código de lote.
-                        </p>
-                        
-                        <div id="groupsList">
-                            <!-- Se inyecta dinámicamente -->
-                        </div>
+                        <label>4. Grupos Autorizados y Asignación de Ubicación</label>
+                        <div id="groupsList"></div>
 
-                        <!-- BUSCADOR INTERACTIVO DE GRUPOS DE WHATSAPP -->
+                        <!-- BUSCADOR INTERACTIVO DE GRUPOS -->
                         <div class="group-add-box">
                             <div style="font-size: 0.85rem; font-weight: 800; color: var(--primary); margin-bottom: 0.5rem;">
                                 🔍 Buscar y Agregar Grupo desde tu WhatsApp
@@ -587,18 +672,16 @@
                             
                             <div class="searchable-select-container">
                                 <div style="display: flex; gap: 0.5rem;">
-                                    <input type="text" id="groupSearchInput" class="form-control" placeholder="Escribe para buscar grupo (ej: Diesel, Calzadas, Gravera, Acopio)..." oninput="filterWhatsAppGroups()" onfocus="showSearchResults()" autocomplete="off">
+                                    <input type="text" id="groupSearchInput" class="form-control" placeholder="Escribe para buscar grupo..." oninput="filterWhatsAppGroups()" onfocus="showSearchResults()" autocomplete="off">
                                     <button type="button" class="btn btn-outline" onclick="fetchWhatsAppGroups()" style="padding: 0.3rem 0.75rem; font-size: 0.75rem; white-space: nowrap;">
                                         🔄 Refrescar
                                     </button>
                                 </div>
-                                <div id="searchResultsList" class="search-results-list">
-                                    <!-- Resultados en tiempo real -->
-                                </div>
+                                <div id="searchResultsList" class="search-results-list"></div>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 2fr 1fr 2.5fr auto; gap: 0.75rem; align-items: center;">
-                                <input type="text" id="newGroupName" class="form-control" placeholder="Nombre Ubicación (Ej: Base Central)">
+                                <input type="text" id="newGroupName" class="form-control" placeholder="Nombre Ubicación">
                                 <input type="text" id="newGroupCode" class="form-control" placeholder="Código (Ej: BASE1)">
                                 <input type="text" id="newGroupId" class="form-control" placeholder="JID (@g.us)" readonly style="background: rgba(15,23,42,0.6); color: var(--text-muted);">
                                 <button type="button" class="btn btn-accent" onclick="addNewGroup()">➕ Autorizar</button>
@@ -608,17 +691,17 @@
 
                     <!-- OPCIONES DE SALIDA -->
                     <div class="form-group">
-                        <label>4. Opciones de Diapositiva</label>
+                        <label>5. Opciones de Diapositiva</label>
                         <div style="display: flex; gap: 1.5rem; align-items: center;">
                             <label style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-main); text-transform: none; cursor: pointer;">
                                 <input type="checkbox" id="sendSlideToGroup" checked style="width: 1.2rem; height: 1.2rem;">
-                                Reenviar la imagen 2x2 automáticamente al grupo al completar 4 vales
+                                Reenviar la imagen 2x2 automáticamente al grupo en Vales de Combustible
                             </label>
                         </div>
                     </div>
 
                     <button type="submit" class="btn" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem;">
-                        💾 Guardar Configuración (Aplicación en Caliente)
+                        💾 Guardar Configuración Multi-Pipeline (Aplicación en Caliente)
                     </button>
                 </form>
             </div>
@@ -632,15 +715,26 @@
     </div>
 
     <script>
+        let currentFilter = 'ALL';
         let currentConfig = {
             accessMode: "public",
             batchSize: 4,
             triggerKeywords: ["vale combustible", "vale diesel", "ticket"],
+            transferTriggerKeywords: ["comprobante transfer", "comprobante transferencia", "#transferencia", "#spei"],
             allowedGroups: [],
             sendSlideToGroup: true
         };
 
         let liveWhatsAppGroups = [];
+
+        function setPipelineFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-pill').forEach(btn => btn.classList.remove('active'));
+            if (filter === 'ALL') document.getElementById('filterAll').classList.add('active');
+            if (filter === 'VALE') document.getElementById('filterVale').classList.add('active');
+            if (filter === 'TRANSFERENCIA') document.getElementById('filterTrans').classList.add('active');
+            loadData();
+        }
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -662,7 +756,8 @@
 
         async function loadData() {
             try {
-                const res = await fetch('/api/vales');
+                const url = currentFilter === 'ALL' ? '/api/vales' : `/api/vales?type=${currentFilter}`;
+                const res = await fetch(url);
                 const data = await res.json();
 
                 // Métricas
@@ -680,7 +775,12 @@
                             </div>
                             <div class="slide-meta">
                                 <div>
-                                    <div class="slide-title">${s.id}</div>
+                                    <div class="slide-title">
+                                        <span class="${s.pipelineType === 'TRANSFERENCIA' ? 'badge-type-trans' : 'badge-type-vale'}">
+                                            ${s.pipelineType === 'TRANSFERENCIA' ? '💳 TRANSFERENCIA' : '⛽ VALE'}
+                                        </span>
+                                        ${s.id}
+                                    </div>
                                     <div class="slide-date">${s.locationName} • ${new Date(s.createdAt).toLocaleDateString()}</div>
                                 </div>
                                 <a href="${s.imageUrl}" download="${s.id}.png" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">📥 PNG</a>
@@ -688,26 +788,31 @@
                         </div>
                     `).join('');
                 } else {
-                    slidesGrid.innerHTML = `<div style="grid-column: 1/-1; padding: 3rem; text-align: center; color: var(--text-dim); background: var(--bg-card); border-radius: 1rem; border: 1px dashed var(--border);">No hay diapositivas generadas aún. Al acumular 4 vales en un grupo se generará la primera.</div>`;
+                    slidesGrid.innerHTML = `<div style="grid-column: 1/-1; padding: 3rem; text-align: center; color: var(--text-dim); background: var(--bg-card); border-radius: 1rem; border: 1px dashed var(--border);">No hay diapositivas generadas para este filtro. Al acumular 4 documentos se compilará la siguiente.</div>`;
                 }
 
                 // Render Table
                 const tbody = document.getElementById('valesTableBody');
                 if (data.vales && data.vales.length > 0) {
-                    tbody.innerHTML = data.vales.map(v => `
+                    tbody.innerHTML = data.vales.map(v => {
+                        const isTrans = v.pipelineType === 'TRANSFERENCIA';
+                        const folder = isTrans ? 'transferencias' : 'vales';
+                        const imgUrl = `/assets/${folder}/${v.imagePath.split('/').pop()}`;
+                        return `
                         <tr>
                             <td><strong>${v.id}</strong></td>
+                            <td><span class="${isTrans ? 'badge-type-trans' : 'badge-type-vale'}">${isTrans ? '💳 TRANSF' : '⛽ VALE'}</span></td>
                             <td>${new Date(v.timestamp).toLocaleString()}</td>
                             <td>${v.locationName}</td>
                             <td>${v.senderName} (${v.senderPhone})</td>
                             <td style="color: var(--primary);">${v.caption || '-'}</td>
                             <td>${v.slideId ? `<strong style="color: var(--accent);">${v.slideId}</strong> (Slot ${v.slideSlot})` : '<span style="color: var(--text-dim);">En espera</span>'}</td>
                             <td><span class="badge-status ${v.status === 'grouped' ? 'badge-grouped' : 'badge-pending'}">${v.status === 'grouped' ? 'Agrupado' : 'Pendiente'}</span></td>
-                            <td><a href="/assets/vales/${v.imagePath.split('/').pop()}" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Ver Foto</a></td>
+                            <td><a href="${imgUrl}" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Ver Foto</a></td>
                         </tr>
-                    `).join('');
+                    `}).join('');
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-dim);">No se han recibido vales todavía.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-dim);">No se han recibido documentos en esta vista todavía.</td></tr>`;
                 }
 
                 // Config State
@@ -715,12 +820,13 @@
                     currentConfig = data.config;
                     document.getElementById('accessModeSelect').value = currentConfig.accessMode || 'public';
                     document.getElementById('triggerKeywords').value = (currentConfig.triggerKeywords || []).join(', ');
+                    document.getElementById('transferTriggerKeywords').value = (currentConfig.transferTriggerKeywords || []).join(', ');
                     document.getElementById('sendSlideToGroup').checked = currentConfig.sendSlideToGroup !== false;
                     renderGroupsList();
                 }
 
             } catch (e) {
-                console.error('Error cargando datos de vales:', e);
+                console.error('Error cargando datos:', e);
             }
         }
 
@@ -804,7 +910,6 @@
             document.getElementById('groupSearchInput').value = selected.name;
             document.getElementById('newGroupName').value = selected.name;
             
-            // Generar código único evitando palabras genéricas como "DIESEL" o "GRUPO"
             const words = selected.name.toUpperCase().replace(/[^A-Z0-9 ]/g, '').split(' ').filter(w => w && w !== 'DIESEL' && w !== 'GRUPO' && w !== 'BOT' && w !== 'DE');
             let cleanCode = (words.length > 0 ? words[0] : selected.name.replace(/[^A-Z0-9]/g, '')).slice(0, 6);
             if (!cleanCode) cleanCode = 'LOC' + selected.id.slice(-4);
@@ -854,12 +959,14 @@
             try {
                 const mode = document.getElementById('accessModeSelect').value;
                 const keywords = document.getElementById('triggerKeywords').value.split(',').map(k => k.trim()).filter(Boolean);
+                const transKeywords = document.getElementById('transferTriggerKeywords').value.split(',').map(k => k.trim()).filter(Boolean);
                 const sendSlide = document.getElementById('sendSlideToGroup').checked;
 
                 const payload = {
                     ...currentConfig,
                     accessMode: mode,
                     triggerKeywords: keywords,
+                    transferTriggerKeywords: transKeywords,
                     allowedGroups: currentConfig.allowedGroups || [],
                     sendSlideToGroup: sendSlide
                 };
@@ -871,7 +978,7 @@
                 });
 
                 if (res.ok) {
-                    alert('✅ Configuración guardada exitosamente y aplicada en caliente.');
+                    alert('✅ Configuración multi-pipeline guardada exitosamente.');
                     loadData();
                 } else {
                     alert('❌ Error al guardar configuración.');
@@ -890,7 +997,6 @@
             document.getElementById('imageModal').classList.remove('active');
         }
 
-        // Cerrar resultados de búsqueda al hacer clic afuera
         document.addEventListener('click', (e) => {
             const container = document.querySelector('.searchable-select-container');
             if (container && !container.contains(e.target)) {

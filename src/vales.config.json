@@ -9,9 +9,21 @@
     "#vale",
     "vale"
   ],
+  "transferTriggerKeywords": [
+    "comprobante transfer",
+    "comprobante transferencia",
+    "transferencia",
+    "#transferencia",
+    "#spei",
+    "spei",
+    "deposito",
+    "#pago"
+  ],
   "allowedGroups": [],
   "sendSlideToGroup": true,
   "dbPath": "database/vales.sqlite",
   "storagePath": "database/vales",
-  "slidesPath": "database/slides"
+  "slidesPath": "database/slides",
+  "transferStoragePath": "database/transferencias",
+  "transferSlidesPath": "database/slides_transferencias"
 }

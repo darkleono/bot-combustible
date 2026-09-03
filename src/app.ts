@@ -10,6 +10,7 @@ import { ActionBridge } from './actions'
 import { valesMediaFlow, groupIdDiscoveryFlow } from './vales-flow'
 import { valesService } from './vales-service'
 import { verifyCredentials, generateSessionToken, validateSessionToken, parseCookies } from './auth'
+import { registerDynamicFlows } from './flow-builder'
 
 const PORT = process.env.PORT ?? 3008
 
@@ -20,10 +21,13 @@ let botNeedsQR = false
 
 const main = async () => {
     try {
-        logger.info('🚀 Preparando motor especializado de vales de combustible...', 'SYSTEM')
+        logger.info('🚀 Preparando motor multi-pipeline (FlowBuilder + Vales + Transferencias)...', 'SYSTEM')
         
-        // 🔄 REGISTRO EXCLUSIVO: groupIdDiscoveryFlow (#id) + valesMediaFlow (Captura de vales en grupos)
-        const adapterFlow = createFlow([groupIdDiscoveryFlow, valesMediaFlow])
+        // 🔄 1. Flujos conversacionales interactivos de choferes (n8n / OCR)
+        const dynamicFlows = registerDynamicFlows()
+        
+        // 🔄 2. Flujos de eventos de medios y grupos (Vales y Transferencias)
+        const adapterFlow = createFlow([...dynamicFlows, groupIdDiscoveryFlow, valesMediaFlow])
 
         // 🛠️ Configuración de versión de WhatsApp (Ajuste para OCI Error 405)
         let version: any = [2, 3000, 1036784162]; 
@@ -158,16 +162,20 @@ const main = async () => {
 
             // 📊 RUTA: API DE VALES Y DIAPOSITIVAS (JSON)
             if (url === '/api/vales') {
-                const allVales = valesService.getAllVales()
-                const allSlides = valesService.getAllSlides()
+                const fullUrl = new URL(req.url, 'http://localhost')
+                const typeParam = fullUrl.searchParams.get('type') as any
+                const filterType = (typeParam === 'VALE' || typeParam === 'TRANSFERENCIA') ? typeParam : undefined
+
+                const allVales = valesService.getAllVales(100, 0, filterType)
+                const allSlides = valesService.getAllSlides(50, 0, filterType)
                 const config = valesService.getConfig()
-                const pendingCount = allVales.filter(v => v.status === 'pending').length
+                const stats = valesService.getStats(filterType)
 
                 res.writeHead(200, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({
-                    totalVales: allVales.length,
-                    totalSlides: allSlides.length,
-                    pendingVales: pendingCount,
+                    totalVales: stats.totalVales,
+                    totalSlides: stats.totalSlides,
+                    pendingVales: stats.pendingVales,
                     vales: allVales,
                     slides: allSlides,
                     config
@@ -234,15 +242,20 @@ const main = async () => {
 
             // 📥 RUTA: EXPORTAR CSV
             if (url === '/api/vales/export.csv') {
-                const csvData = valesService.exportCsv()
+                const fullUrl = new URL(req.url, 'http://localhost')
+                const typeParam = fullUrl.searchParams.get('type') as any
+                const filterType = (typeParam === 'VALE' || typeParam === 'TRANSFERENCIA') ? typeParam : undefined
+                const csvData = valesService.exportCsv(filterType)
+                const filename = filterType === 'TRANSFERENCIA' ? 'transferencias_banco.csv' : 'vales_combustible.csv'
+
                 res.writeHead(200, {
                     'Content-Type': 'text/csv; charset=utf-8',
-                    'Content-Disposition': 'attachment; filename="vales_combustible.csv"'
+                    'Content-Disposition': `attachment; filename="${filename}"`
                 })
                 return res.end(csvData)
             }
 
-            // 🖼️ RUTA ESTÁTICA: SERVIR DIAPOSITIVAS GENERADAS
+            // 🖼️ RUTA ESTÁTICA: SERVIR DIAPOSITIVAS GENERADAS (VALES Y TRANSFERENCIAS)
             if (url.startsWith('/assets/slides/')) {
                 const filename = url.replace('/assets/slides/', '')
                 const filePath = join(projectRoot, 'database', 'slides', filename)
@@ -253,8 +266,18 @@ const main = async () => {
                 res.writeHead(404)
                 return res.end('Diapositiva no encontrada')
             }
+            if (url.startsWith('/assets/slides_transferencias/')) {
+                const filename = url.replace('/assets/slides_transferencias/', '')
+                const filePath = join(projectRoot, 'database', 'slides_transferencias', filename)
+                if (fs.existsSync(filePath)) {
+                    res.writeHead(200, { 'Content-Type': 'image/png' })
+                    return res.end(fs.readFileSync(filePath))
+                }
+                res.writeHead(404)
+                return res.end('Diapositiva de transferencia no encontrada')
+            }
 
-            // 📸 RUTA ESTÁTICA: SERVIR FOTOS DE VALES
+            // 📸 RUTA ESTÁTICA: SERVIR FOTOS DE VALES Y TRANSFERENCIAS
             if (url.startsWith('/assets/vales/')) {
                 const filename = url.replace('/assets/vales/', '')
                 const filePath = join(projectRoot, 'database', 'vales', filename)
@@ -264,6 +287,16 @@ const main = async () => {
                 }
                 res.writeHead(404)
                 return res.end('Foto de vale no encontrada')
+            }
+            if (url.startsWith('/assets/transferencias/')) {
+                const filename = url.replace('/assets/transferencias/', '')
+                const filePath = join(projectRoot, 'database', 'transferencias', filename)
+                if (fs.existsSync(filePath)) {
+                    res.writeHead(200, { 'Content-Type': 'image/jpeg' })
+                    return res.end(fs.readFileSync(filePath))
+                }
+                res.writeHead(404)
+                return res.end('Foto de transferencia no encontrada')
             }
 
             // ⚙️ RUTA: CONFIGURACIÓN (API)
