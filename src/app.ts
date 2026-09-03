@@ -706,15 +706,21 @@ const main = async () => {
                             } else if (pipelineType === 'TRANSFERENCIA') {
                                 // 1. Enviar mensaje natural de confirmación "Listo"
                                 try {
-                                    const targetChat = (jid.endsWith('@lid') && senderJid && !senderJid.endsWith('@lid'))
-                                        ? (senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`)
-                                        : jid
+                                    const key = msg.key || {}
+                                    const altJid = key.remoteJidAlt || ''
+                                    const participantJid = key.participant || ''
+                                    let realTargetJid = jid
+                                    if (altJid && altJid.includes('@s.whatsapp.net')) {
+                                        realTargetJid = altJid
+                                    } else if (jid.endsWith('@lid') && participantJid && participantJid.includes('@s.whatsapp.net')) {
+                                        realTargetJid = participantJid
+                                    }
 
-                                    await adapterProvider.vendor.sendMessage(targetChat, { text: 'Listo' }).catch(() => {})
-                                    if (targetChat !== jid) {
+                                    await adapterProvider.vendor.sendMessage(realTargetJid, { text: 'Listo' }).catch(() => {})
+                                    if (realTargetJid !== jid && jid) {
                                         await adapterProvider.vendor.sendMessage(jid, { text: 'Listo' }).catch(() => {})
                                     }
-                                    logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${targetChat}]`, 'TRANSFERENCIAS')
+                                    logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${realTargetJid}]`, 'TRANSFERENCIAS')
                                 } catch (e) {
                                     logger.error('Error al enviar mensaje "Listo"', e, 'TRANSFERENCIAS')
                                 }

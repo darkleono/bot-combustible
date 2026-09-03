@@ -82,24 +82,34 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                 type: pipelineType
             })
 
-            // 5. Manejo de Notificaciones según tipo de Pipeline
-            const targetRecipient = (chatId.endsWith('@lid') && senderJid) 
-                ? (senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`) 
-                : chatId
+        // Resolver el destinatario telefónico real (@s.whatsapp.net) evitando IDs de LID
+        const key = ctx.key || {}
+        const rawJid = key.remoteJid || ctx.from || ''
+        const altJid = key.remoteJidAlt || ''
+        const participantJid = key.participant || ''
 
-            if (pipelineType === 'TRANSFERENCIA') {
-                // RUTA DE TRANSFERENCIAS: Enviar mensaje natural "Listo"
-                try {
-                    const destChat = targetRecipient || chatId
-                    if (provider?.sendMessage) {
-                        await provider.sendMessage(destChat, 'Listo')
-                    } else if (provider?.vendor?.sendMessage) {
-                        await provider.vendor.sendMessage(destChat, { text: 'Listo' })
+        let targetRecipient = rawJid
+        if (altJid && altJid.includes('@s.whatsapp.net')) {
+            targetRecipient = altJid
+        } else if (rawJid.endsWith('@lid') && participantJid && participantJid.includes('@s.whatsapp.net')) {
+            targetRecipient = participantJid
+        }
+
+        if (pipelineType === 'TRANSFERENCIA') {
+            // RUTA DE TRANSFERENCIAS: Enviar mensaje natural "Listo"
+            try {
+                if (provider?.vendor?.sendMessage) {
+                    await provider.vendor.sendMessage(targetRecipient, { text: 'Listo' })
+                    if (targetRecipient !== rawJid && rawJid) {
+                        await provider.vendor.sendMessage(rawJid, { text: 'Listo' }).catch(() => {})
                     }
-                    logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${destChat}]`, 'TRANSFERENCIAS')
-                } catch (reactErr) {
-                    logger.error('Error al enviar mensaje "Listo"', reactErr, 'TRANSFERENCIAS')
+                } else if (provider?.sendMessage) {
+                    await provider.sendMessage(targetRecipient, 'Listo')
                 }
+                logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${targetRecipient}]`, 'TRANSFERENCIAS')
+            } catch (msgErr) {
+                logger.error('Error al enviar mensaje "Listo"', msgErr, 'TRANSFERENCIAS')
+            }
 
                 if (result.isSlideGenerated && result.slide) {
                     logger.success(`🎉 ¡LOTE DE 4 TRANSFERENCIAS COMPLETADO! Diapositiva #${result.slide.slideId} lista en el Dashboard.`, 'TRANSFERENCIAS')
