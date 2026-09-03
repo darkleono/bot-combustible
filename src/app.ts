@@ -56,7 +56,10 @@ const main = async () => {
             const url = rawPath.replace(/\/+$/, '') || '/'
             const projectRoot = process.cwd()
             
-            // 🔐 RUTA: API LOGIN (POST)
+            // Log de rutas para diagnóstico
+            if (url.startsWith('/api/') || url === '/slides' || url === '/vales') {
+                logger.info(`🌐 [HTTP]: ${req.method} ${url}`, 'HTTP')
+            }
             if (url === '/api/login' && req.method === 'POST') {
                 const processAuth = (data: any) => {
                     const username = data?.username || ''
