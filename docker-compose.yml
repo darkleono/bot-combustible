@@ -15,6 +15,9 @@ services:
       # 💾 BASE DE DATOS
       - "/DATA/AppData/Bots/bot-combustible/db:/app/database"
       
+      # 💻 CÓDIGO FUENTE EN VIVO
+      - "/DATA/AppData/Bots/bot-combustible/src:/app/src"
+      
       # ⚙️ PERSISTENCIA DE CONFIGURACIÓN
       - "/DATA/AppData/Bots/bot-combustible/config/flows.config.json:/app/src/flows.config.json"
       
