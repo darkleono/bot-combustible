@@ -640,7 +640,7 @@ const main = async () => {
                         continue
                     }
 
-                    // 2. Procesamiento de Vales en Grupos y Chats
+                    // 2. Procesamiento Multi-Pipeline en Grupos y Chats
                     const hasImage = !!(
                         messageContent?.imageMessage ||
                         messageContent?.ephemeralMessage?.message?.imageMessage ||
@@ -649,81 +649,107 @@ const main = async () => {
                     )
 
                     if (hasImage) {
-                        // A. Filtro por modo de acceso
-                        if (!valesService.isAllowed(jid)) {
-                            logger.info(`[FILTRO]: Mensaje ignorado en [${jid}] (Modo restringido)`, 'VALES')
+                        // A. Filtro por modo de acceso en grupos
+                        if (isGroup && !valesService.isAllowed(jid)) {
+                            logger.info(`[FILTRO]: Mensaje ignorado en [${jid}] (Modo restringido)`, 'MEDIA')
                             continue
                         }
 
-                        // B. Filtro por palabra clave
-                        if (!valesService.isTriggerMatch(text)) {
-                            logger.info(`[FILTRO]: Foto ignorada en [${jid}] - Caption no coincide: "${text}"`, 'VALES')
+                        // B. Detección inteligente del tipo de Pipeline
+                        const pipelineType = valesService.detectPipeline(text)
+                        if (!pipelineType) {
+                            logger.info(`[FILTRO]: Foto ignorada en [${jid}] - Caption no coincide con ningún pipeline: "${text}"`, 'MEDIA')
                             continue
                         }
 
                         const rawPush = (msg.pushName || '').trim()
                         const cleanPush = rawPush.replace(/^[.\s\-_,;:]+$/, '')
                         const rawPhone = (senderJid ? senderJid.split('@')[0].split(':')[0] : '').trim()
-                        const senderName = cleanPush || (rawPhone ? `Conductor (+${rawPhone})` : 'Conductor')
+                        const senderName = cleanPush || (rawPhone ? `Usuario (+${rawPhone})` : 'Usuario')
 
                         const location = valesService.resolveLocation(jid)
                         const locationName = location.name
 
-                        logger.info(`📸 [VALE EN SOCKET]: [${locationName}] | Remitente: [${senderName}] | Caption: "${text}"`, 'VALES')
+                        logger.info(`📸 [${pipelineType} EN SOCKET]: [${locationName}] | Remitente: [${senderName}] | Caption: "${text}"`, 'MEDIA')
 
                         try {
-                            // 1. Mensaje de confirmación de recepción / procesando
-                            await adapterProvider.vendor.sendMessage(jid, { 
-                                text: `⌛ *Procesando vale...*\n_Descargando imagen y registrando datos de ${senderName}..._` 
-                            }).catch(() => {})
+                            if (pipelineType === 'VALE') {
+                                // 1. Mensaje previo de recepción para vales
+                                await adapterProvider.vendor.sendMessage(jid, { 
+                                    text: `⌛ *Procesando vale...*\n_Descargando imagen y registrando datos de ${senderName}..._` 
+                                }).catch(() => {})
+                            } else if (pipelineType === 'TRANSFERENCIA') {
+                                // 1. Reaccionar con emoji 👍 directamente al mensaje
+                                try {
+                                    if (msg.key) {
+                                        await adapterProvider.vendor.sendMessage(jid, {
+                                            react: { text: '👍', key: msg.key }
+                                        })
+                                        logger.success(`👍 Reacción enviada a la transferencia en [${jid}]`, 'TRANSFERENCIAS')
+                                    }
+                                } catch (e) {
+                                    logger.error('Error al enviar reacción 👍', e, 'TRANSFERENCIAS')
+                                }
+                            }
 
                             // 2. Descargar imagen
                             const savedFilePath = await adapterProvider.saveFile(msg)
 
-                            // 3. Registrar en SQLite y compilar lote
+                            // 3. Registrar en SQLite y compilar lote según pipeline
                             const result = await valesService.processVoucher({
                                 groupId: jid,
                                 senderJid,
                                 senderName,
                                 caption: text,
-                                rawImageBufferOrPath: savedFilePath
+                                rawImageBufferOrPath: savedFilePath,
+                                type: pipelineType
                             })
 
-                            // 4. Mensaje de éxito informando el registro del vale
-                            if (result.isSlideGenerated && result.slide) {
-                                const completeMsg = 
-                                    `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
-                                    `📍 *Ubicación:* ${locationName}\n` +
-                                    `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
-                                    `💾 *Imagen guardada y archivada en SQLite exitosamente.*`
+                            // 4. Mensajes de salida SOLO para Vales de Combustible
+                            if (pipelineType === 'VALE') {
+                                if (result.isSlideGenerated && result.slide) {
+                                    const completeMsg = 
+                                        `🎉 *¡LOTE DE 4 VALES COMPLETADO!*\n\n` +
+                                        `📍 *Ubicación:* ${locationName}\n` +
+                                        `🏷️ *Diapositiva Generada:* #${result.slide.slideId}\n` +
+                                        `💾 *Imagen guardada y archivada en SQLite exitosamente.*`
 
-                                await adapterProvider.vendor.sendMessage(jid, { text: completeMsg })
+                                    await adapterProvider.vendor.sendMessage(jid, { text: completeMsg })
 
-                                if (valesService.getConfig().sendSlideToGroup && result.slide.slideImagePath && fs.existsSync(result.slide.slideImagePath)) {
-                                    const imgBuffer = fs.readFileSync(result.slide.slideImagePath)
-                                    await adapterProvider.vendor.sendMessage(jid, {
-                                        image: imgBuffer,
-                                        caption: `🖼️ Diapositiva *#${result.slide.slideId}* (Cuadrícula 2x2):`
-                                    })
+                                    if (valesService.getConfig().sendSlideToGroup && result.slide.slideImagePath && fs.existsSync(result.slide.slideImagePath)) {
+                                        const imgBuffer = fs.readFileSync(result.slide.slideImagePath)
+                                        await adapterProvider.vendor.sendMessage(jid, {
+                                            image: imgBuffer,
+                                            caption: `🖼️ Diapositiva *#${result.slide.slideId}* (Cuadrícula 2x2):`
+                                        })
+                                    }
+                                } else {
+                                    const faltantes = result.batchTotal - result.batchCount
+                                    const progressMsg = 
+                                        `✅ *Vale Guardado y Registrado Exitosamente*\n\n` +
+                                        `🆔 *ID:* #${result.vale.id}\n` +
+                                        `📍 *Ubicación:* ${locationName}\n` +
+                                        `👤 *Remitente:* ${senderName}\n` +
+                                        `📝 *Detalle:* ${text || 'Sin descripción'}\n` +
+                                        `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n\n` +
+                                        `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
+
+                                    await adapterProvider.vendor.sendMessage(jid, { text: progressMsg })
                                 }
-                            } else {
-                                const faltantes = result.batchTotal - result.batchCount
-                                const progressMsg = 
-                                    `✅ *Vale Guardado y Registrado Exitosamente*\n\n` +
-                                    `🆔 *ID:* #${result.vale.id}\n` +
-                                    `📍 *Ubicación:* ${locationName}\n` +
-                                    `👤 *Remitente:* ${senderName}\n` +
-                                    `📝 *Detalle:* ${text || 'Sin descripción'}\n` +
-                                    `📊 *Progreso del lote:* [${result.batchCount}/${result.batchTotal} vales]\n\n` +
-                                    `_Faltan ${faltantes} vale(s) para compilar la siguiente diapositiva._`
-
-                                await adapterProvider.vendor.sendMessage(jid, { text: progressMsg })
+                            } else if (pipelineType === 'TRANSFERENCIA') {
+                                if (result.isSlideGenerated && result.slide) {
+                                    logger.success(`🎉 ¡LOTE DE 4 TRANSFERENCIAS COMPLETADO! Diapositiva #${result.slide.slideId} lista en el Dashboard.`, 'TRANSFERENCIAS')
+                                } else {
+                                    logger.info(`💳 Transferencia guardada [#${result.vale.id}] Progreso: [${result.batchCount}/${result.batchTotal}]`, 'TRANSFERENCIAS')
+                                }
                             }
                         } catch (voucherErr: any) {
-                            logger.error('Error al procesar vale en socket', voucherErr, 'VALES')
-                            await adapterProvider.vendor.sendMessage(jid, { 
-                                text: `⚠️ *Error al procesar vale:* ${voucherErr.message}` 
-                            }).catch(() => {})
+                            logger.error(`Error al procesar ${pipelineType} en socket`, voucherErr, 'MEDIA')
+                            if (pipelineType === 'VALE') {
+                                await adapterProvider.vendor.sendMessage(jid, { 
+                                    text: `⚠️ *Error al procesar vale:* ${voucherErr.message}` 
+                                }).catch(() => {})
+                            }
                         }
                     }
                 }
