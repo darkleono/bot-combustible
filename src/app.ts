@@ -559,6 +559,35 @@ const main = async () => {
             })
         )
 
+        // ⚡ RUTA FORMAL PARA COMPILAR FORZADAMENTE DIAPOSITIVAS PENDIENTES
+        adapterProvider.server.post(
+            '/api/vales/compile-now',
+            handleCtx(async (bot, req, res) => {
+                const cookies = parseCookies(req.headers?.cookie)
+                if (!validateSessionToken(cookies.vales_session)) {
+                    res.writeHead(401, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ error: 'No autorizado' }))
+                }
+
+                try {
+                    const fullUrl = new URL(req.url, 'http://localhost')
+                    const typeParam = fullUrl.searchParams.get('type') as any
+                    const filterType = (typeParam === 'VALE' || typeParam === 'TRANSFERENCIA') ? typeParam : undefined
+                    const result = await valesService.compilePendingSlides({ pipelineType: filterType })
+                    res.writeHead(200, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ 
+                        status: 'ok', 
+                        compiledCount: result.compiledCount, 
+                        slidesCount: result.slides.length,
+                        slides: result.slides 
+                    }))
+                } catch (err: any) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'error', error: err.message }))
+                }
+            })
+        )
+
         // 📡 MONITOREO DE EVENTOS PARA EL DASHBOARD Y MENSAJES DIRECTOS
         adapterProvider.on('message', async (msg: any) => {
             const jid = msg?.key?.remoteJid || msg?.from || ''
