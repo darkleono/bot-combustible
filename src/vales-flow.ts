@@ -96,7 +96,19 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                                 text: '👍',
                                 key: ctx.key
                             }
-                        })
+                        }).catch(() => {})
+
+                        if (targetRecipient && targetRecipient !== chatId) {
+                            await provider.vendor.sendMessage(targetRecipient, {
+                                react: {
+                                    text: '👍',
+                                    key: {
+                                        ...ctx.key,
+                                        remoteJid: targetRecipient
+                                    }
+                                }
+                            }).catch(() => {})
+                        }
                         logger.success(`👍 Reacción enviada a la transferencia en [${chatId}]`, 'TRANSFERENCIAS')
                     }
                 } catch (reactErr) {

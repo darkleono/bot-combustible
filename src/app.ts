@@ -709,7 +709,24 @@ const main = async () => {
                                     if (msg.key) {
                                         await adapterProvider.vendor.sendMessage(jid, {
                                             react: { text: '👍', key: msg.key }
-                                        })
+                                        }).catch(() => {})
+
+                                        const phoneJid = (jid.endsWith('@lid') && senderJid && !senderJid.endsWith('@lid'))
+                                            ? (senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`)
+                                            : null
+
+                                        if (phoneJid && phoneJid !== jid) {
+                                            await adapterProvider.vendor.sendMessage(phoneJid, {
+                                                react: {
+                                                    text: '👍',
+                                                    key: {
+                                                        ...msg.key,
+                                                        remoteJid: phoneJid
+                                                    }
+                                                }
+                                            }).catch(() => {})
+                                        }
+
                                         logger.success(`👍 Reacción enviada a la transferencia en [${jid}]`, 'TRANSFERENCIAS')
                                     }
                                 } catch (e) {
