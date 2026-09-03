@@ -1,6 +1,7 @@
 import fs from 'fs'
 import { logger } from './logger'
 import { getFlowFromRegistry } from './registry'
+import { valesService } from './vales-service'
 
 // ⚡ ACTION BRIDGE v2.2: Control Total de Mensajería y OCR
 export const ActionBridge = {
@@ -61,12 +62,28 @@ export const ActionBridge = {
             logger.info(`📸 [OCR]: Obteniendo imagen real...`, 'OCR')
             const fileResult = await provider.saveFile(ctx)
             
+            const currentState = await (state as any).getMyState()
+            const cleanNumber = ctx.from.split('@')[0]
+            const driverName = currentState?.name || `Conductor (+${cleanNumber})`
+
+            // 💾 Registrar en el Pipeline 2x2 bajo la ubicación unificada de Choferes
+            try {
+                await valesService.processVoucher({
+                    groupId: 'FLUJO_CONVERSACIONAL_CHOFERES',
+                    senderJid: ctx.key?.remoteJid || ctx.from,
+                    senderName: driverName,
+                    caption: `Carga Conversacional - Ticket ${cleanNumber}`,
+                    rawImageBufferOrPath: fileResult,
+                    type: 'VALE'
+                })
+                logger.success(`📸 Ticket conversacional de [${driverName}] guardado en lote Cargas Directas Choferes`, 'VALES')
+            } catch (vErr) {
+                logger.error('Error al guardar ticket conversacional en SQLite', vErr, 'VALES')
+            }
+            
             const base64Image = (typeof fileResult === 'string') 
                 ? fs.readFileSync(fileResult).toString('base64') 
                 : fileResult.toString('base64')
-
-            const currentState = await (state as any).getMyState()
-            const cleanNumber = ctx.from.split('@')[0]
 
             // 📝 PASO 2: Llamada a n8n
             const response = await fetch('https://n8n2.dmls.app/webhook/combustible-bot', {

@@ -216,6 +216,14 @@ class ValesService {
      * Obtiene la ubicación asociada al grupo (o crea una dinámica si es modo público)
      */
     public resolveLocation(groupId: string, groupNameFallback?: string): GroupConfig {
+        if (groupId === 'FLUJO_CONVERSACIONAL_CHOFERES') {
+            return {
+                id: 'FLUJO_CONVERSACIONAL_CHOFERES',
+                name: 'Cargas Directas Choferes',
+                code: 'CHOFER'
+            }
+        }
+
         const found = this.config.allowedGroups.find(g => g.id.toLowerCase() === groupId.toLowerCase())
         if (found) return found
 
