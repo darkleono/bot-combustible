@@ -57,6 +57,28 @@ class ValesService {
             if (fs.existsSync(CONFIG_FILE)) {
                 const data = fs.readFileSync(CONFIG_FILE, 'utf8')
                 this.config = JSON.parse(data)
+                
+                let needSave = false
+                if (!this.config.transferTriggerKeywords || this.config.transferTriggerKeywords.length === 0) {
+                    this.config.transferTriggerKeywords = [
+                        'comprobante transfer', 'comprobante transferencia', 'transferencia',
+                        '#transferencia', '#spei', 'spei', 'deposito', '#pago'
+                    ]
+                    needSave = true
+                }
+                if (!this.config.transferStoragePath) {
+                    this.config.transferStoragePath = 'database/transferencias'
+                    needSave = true
+                }
+                if (!this.config.transferSlidesPath) {
+                    this.config.transferSlidesPath = 'database/slides_transferencias'
+                    needSave = true
+                }
+
+                if (needSave) {
+                    fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.config, null, 2), 'utf8')
+                }
+
                 return this.config
             }
         } catch (error) {

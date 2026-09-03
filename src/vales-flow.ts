@@ -88,7 +88,21 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                 : chatId
 
             if (pipelineType === 'TRANSFERENCIA') {
-                // RUTA DE TRANSFERENCIAS: Silenciosa en chat del chofer si es saliente
+                // RUTA DE TRANSFERENCIAS: Reaccionar con 👍 a la foto para confirmar la captura silenciosa
+                try {
+                    if (provider?.vendor?.sendMessage && ctx?.key) {
+                        await provider.vendor.sendMessage(chatId, {
+                            react: {
+                                text: '👍',
+                                key: ctx.key
+                            }
+                        })
+                        logger.success(`👍 Reacción enviada a la transferencia en [${chatId}]`, 'TRANSFERENCIAS')
+                    }
+                } catch (reactErr) {
+                    logger.error('Error al enviar reacción 👍', reactErr, 'TRANSFERENCIAS')
+                }
+
                 if (result.isSlideGenerated && result.slide) {
                     logger.success(`🎉 ¡LOTE DE 4 TRANSFERENCIAS COMPLETADO! Diapositiva #${result.slide.slideId} lista en el Dashboard.`, 'TRANSFERENCIAS')
                 } else {

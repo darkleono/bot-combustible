@@ -820,7 +820,13 @@
                     currentConfig = data.config;
                     document.getElementById('accessModeSelect').value = currentConfig.accessMode || 'public';
                     document.getElementById('triggerKeywords').value = (currentConfig.triggerKeywords || []).join(', ');
-                    document.getElementById('transferTriggerKeywords').value = (currentConfig.transferTriggerKeywords || []).join(', ');
+                    
+                    const defaultTrans = ['comprobante transfer', 'comprobante transferencia', '#transferencia', '#spei', 'spei', 'transferencia'];
+                    const activeTrans = (currentConfig.transferTriggerKeywords && currentConfig.transferTriggerKeywords.length > 0)
+                        ? currentConfig.transferTriggerKeywords
+                        : defaultTrans;
+                    document.getElementById('transferTriggerKeywords').value = activeTrans.join(', ');
+
                     document.getElementById('sendSlideToGroup').checked = currentConfig.sendSlideToGroup !== false;
                     renderGroupsList();
                 }
