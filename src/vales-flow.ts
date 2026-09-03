@@ -88,31 +88,17 @@ export const valesMediaFlow = addKeyword(EVENTS.MEDIA)
                 : chatId
 
             if (pipelineType === 'TRANSFERENCIA') {
-                // RUTA DE TRANSFERENCIAS: Reaccionar con 👍 a la foto para confirmar la captura silenciosa
+                // RUTA DE TRANSFERENCIAS: Enviar mensaje natural "Listo"
                 try {
-                    if (provider?.vendor?.sendMessage && ctx?.key) {
-                        await provider.vendor.sendMessage(chatId, {
-                            react: {
-                                text: '👍',
-                                key: ctx.key
-                            }
-                        }).catch(() => {})
-
-                        if (targetRecipient && targetRecipient !== chatId) {
-                            await provider.vendor.sendMessage(targetRecipient, {
-                                react: {
-                                    text: '👍',
-                                    key: {
-                                        ...ctx.key,
-                                        remoteJid: targetRecipient
-                                    }
-                                }
-                            }).catch(() => {})
-                        }
-                        logger.success(`👍 Reacción enviada a la transferencia en [${chatId}]`, 'TRANSFERENCIAS')
+                    const destChat = targetRecipient || chatId
+                    if (provider?.sendMessage) {
+                        await provider.sendMessage(destChat, 'Listo')
+                    } else if (provider?.vendor?.sendMessage) {
+                        await provider.vendor.sendMessage(destChat, { text: 'Listo' })
                     }
+                    logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${destChat}]`, 'TRANSFERENCIAS')
                 } catch (reactErr) {
-                    logger.error('Error al enviar reacción 👍', reactErr, 'TRANSFERENCIAS')
+                    logger.error('Error al enviar mensaje "Listo"', reactErr, 'TRANSFERENCIAS')
                 }
 
                 if (result.isSlideGenerated && result.slide) {

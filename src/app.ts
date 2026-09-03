@@ -704,33 +704,19 @@ const main = async () => {
                                     text: `⌛ *Procesando vale...*\n_Descargando imagen y registrando datos de ${senderName}..._` 
                                 }).catch(() => {})
                             } else if (pipelineType === 'TRANSFERENCIA') {
-                                // 1. Reaccionar con emoji 👍 directamente al mensaje
+                                // 1. Enviar mensaje natural de confirmación "Listo"
                                 try {
-                                    if (msg.key) {
-                                        await adapterProvider.vendor.sendMessage(jid, {
-                                            react: { text: '👍', key: msg.key }
-                                        }).catch(() => {})
+                                    const targetChat = (jid.endsWith('@lid') && senderJid && !senderJid.endsWith('@lid'))
+                                        ? (senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`)
+                                        : jid
 
-                                        const phoneJid = (jid.endsWith('@lid') && senderJid && !senderJid.endsWith('@lid'))
-                                            ? (senderJid.includes('@') ? senderJid : `${senderJid}@s.whatsapp.net`)
-                                            : null
-
-                                        if (phoneJid && phoneJid !== jid) {
-                                            await adapterProvider.vendor.sendMessage(phoneJid, {
-                                                react: {
-                                                    text: '👍',
-                                                    key: {
-                                                        ...msg.key,
-                                                        remoteJid: phoneJid
-                                                    }
-                                                }
-                                            }).catch(() => {})
-                                        }
-
-                                        logger.success(`👍 Reacción enviada a la transferencia en [${jid}]`, 'TRANSFERENCIAS')
+                                    await adapterProvider.vendor.sendMessage(targetChat, { text: 'Listo' }).catch(() => {})
+                                    if (targetChat !== jid) {
+                                        await adapterProvider.vendor.sendMessage(jid, { text: 'Listo' }).catch(() => {})
                                     }
+                                    logger.success(`💬 Mensaje "Listo" enviado a la transferencia en [${targetChat}]`, 'TRANSFERENCIAS')
                                 } catch (e) {
-                                    logger.error('Error al enviar reacción 👍', e, 'TRANSFERENCIAS')
+                                    logger.error('Error al enviar mensaje "Listo"', e, 'TRANSFERENCIAS')
                                 }
                             }
 
