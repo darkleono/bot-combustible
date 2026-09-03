@@ -1,0 +1,31 @@
+# 🐳 DOCKER COMPOSE - Instancia Multi-Pipe (Vales + Transferencias)
+# Ruta base en servidor: /DATA/AppData/Bots/bot-multi-pipe/
+
+services:
+  bot-multi-pipe:
+    build: .
+    container_name: bot-multi-pipe
+    restart: always
+    ports:
+      - "8085:8088"  # Expuesto en puerto 8085 para no colisionar con 8088 ni 8083
+    volumes:
+      # 📚 PERSISTENCIA DE SESIÓN WHATSAPP
+      - "/DATA/AppData/Bots/bot-multi-pipe/auth:/app/bot_sessions"
+      
+      # 💾 BASE DE DATOS Y MULTIMEDIA (SQLite, Vales, Slides, Transferencias)
+      - "/DATA/AppData/Bots/bot-multi-pipe/db:/app/database"
+      
+      # ⚙️ PERSISTENCIA DE CONFIGURACIÓN DE PIPELINES
+      - "/DATA/AppData/Bots/bot-multi-pipe/config/vales.config.json:/app/src/vales.config.json"
+      
+      # 📝 PERSISTENCIA DE REGISTROS
+      - "/DATA/AppData/Bots/bot-multi-pipe/logs:/app/logs"
+      
+    env_file:
+      - .env
+
+    environment:
+      - NODE_ENV=production
+      - PORT=8088
+      - TZ=America/Mexico_City
+      - WAPP_VERSION=2,3000,1046041993
