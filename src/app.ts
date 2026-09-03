@@ -240,6 +240,27 @@ const main = async () => {
                 }
             }
 
+            // ⚡ RUTA: COMPILAR FORZADAMENTE DIAPOSITIVAS PENDIENTES
+            if (url === '/api/vales/compile-now') {
+                const fullUrl = new URL(req.url, 'http://localhost')
+                const typeParam = fullUrl.searchParams.get('type') as any
+                const filterType = (typeParam === 'VALE' || typeParam === 'TRANSFERENCIA') ? typeParam : undefined
+                
+                try {
+                    const result = await valesService.compilePendingSlides({ pipelineType: filterType })
+                    res.writeHead(200, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ 
+                        status: 'ok', 
+                        compiledCount: result.compiledCount, 
+                        slidesCount: result.slides.length,
+                        slides: result.slides 
+                    }))
+                } catch (err: any) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'error', error: err.message }))
+                }
+            }
+
             // 📥 RUTA: EXPORTAR CSV
             if (url === '/api/vales/export.csv') {
                 const fullUrl = new URL(req.url, 'http://localhost')
@@ -599,11 +620,13 @@ const main = async () => {
             vendor.ev.on('messages.upsert', async (data: any) => {
                 const messages = data?.messages || []
                 for (const msg of messages) {
-                    if (msg.key?.fromMe) continue
-
+                    const isFromMe = Boolean(msg.key?.fromMe)
                     const jid = msg.key?.remoteJid || ''
-                    const senderJid = msg.key?.participant || msg.key?.remoteJid || ''
+                    const senderJid = msg.key?.participant || (isFromMe ? 'Coordinación' : msg.key?.remoteJid || '')
                     const isGroup = typeof jid === 'string' && jid.endsWith('@g.us')
+
+                    // Ignorar estados de difusión
+                    if (jid === 'status@broadcast') continue
 
                     const messageContent = msg.message || {}
                     const text = (
@@ -618,29 +641,31 @@ const main = async () => {
                         ''
                     ).trim()
 
-                    if (isGroup) {
+                    if (isGroup && !isFromMe) {
                         logger.info(`👥 [GRUPO ENTRANTE]: Grupo: [${jid}] | De: [${senderJid}] | Texto: "${text}"`, 'WHATSAPP')
                     }
 
-                    // 1. Comando de identificación en grupos (#id, !id, /id)
-                    const cleanLower = text.toLowerCase()
-                    if (cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#grupo') {
-                        const idCard = 
-                            `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
-                            `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
-                            `🆔 *ID (JID):* \`${jid}\`\n` +
-                            `👤 *Tu ID:* \`${senderJid}\`\n\n` +
-                            `💡 _Copia este ID en el Panel Web para autorizar este grupo._`
-                        
-                        try {
-                            await adapterProvider.vendor.sendMessage(jid, { text: idCard })
-                        } catch (sendErr) {
-                            logger.error('Error al responder #id en grupo', sendErr, 'WHATSAPP')
+                    // 1. Comando de identificación en grupos (#id, !id, /id) solo para entrantes
+                    if (!isFromMe) {
+                        const cleanLower = text.toLowerCase()
+                        if (cleanLower === '#id' || cleanLower === '!id' || cleanLower === '/id' || cleanLower === '#grupo') {
+                            const idCard = 
+                                `📋 *DATOS DE IDENTIFICACIÓN*\n\n` +
+                                `🏷️ *Tipo:* ${isGroup ? '👥 Grupo de WhatsApp' : '👤 Chat Privado'}\n` +
+                                `🆔 *ID (JID):* \`${jid}\`\n` +
+                                `👤 *Tu ID:* \`${senderJid}\`\n\n` +
+                                `💡 _Copia este ID en el Panel Web para autorizar este grupo._`
+                            
+                            try {
+                                await adapterProvider.vendor.sendMessage(jid, { text: idCard })
+                            } catch (sendErr) {
+                                logger.error('Error al responder #id en grupo', sendErr, 'WHATSAPP')
+                            }
+                            continue
                         }
-                        continue
                     }
 
-                    // 2. Procesamiento Multi-Pipeline en Grupos y Chats
+                    // 2. Procesamiento Multi-Pipeline en Grupos y Chats (Entrantes y Salientes fromMe)
                     const hasImage = !!(
                         messageContent?.imageMessage ||
                         messageContent?.ephemeralMessage?.message?.imageMessage ||
@@ -665,12 +690,12 @@ const main = async () => {
                         const rawPush = (msg.pushName || '').trim()
                         const cleanPush = rawPush.replace(/^[.\s\-_,;:]+$/, '')
                         const rawPhone = (senderJid ? senderJid.split('@')[0].split(':')[0] : '').trim()
-                        const senderName = cleanPush || (rawPhone ? `Usuario (+${rawPhone})` : 'Usuario')
+                        const senderName = isFromMe ? 'Coordinación' : (cleanPush || (rawPhone ? `Usuario (+${rawPhone})` : 'Usuario'))
 
                         const location = valesService.resolveLocation(jid)
                         const locationName = location.name
 
-                        logger.info(`📸 [${pipelineType} EN SOCKET]: [${locationName}] | Remitente: [${senderName}] | Caption: "${text}"`, 'MEDIA')
+                        logger.info(`📸 [${pipelineType} EN SOCKET]: Chat: [${locationName}] | fromMe: ${isFromMe} | Remitente: [${senderName}] | Caption: "${text}"`, 'MEDIA')
 
                         try {
                             if (pipelineType === 'VALE') {

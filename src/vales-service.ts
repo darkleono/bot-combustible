@@ -467,6 +467,123 @@ class ValesService {
         }
     }
 
+    /**
+     * Compila forzadamente los documentos pendientes (incluso si son menos de 4) en diapositivas 2x2
+     */
+    public async compilePendingSlides(params?: { pipelineType?: PipelineType }): Promise<{
+        compiledCount: number
+        slides: SlideResult[]
+    }> {
+        const types: PipelineType[] = params?.pipelineType 
+            ? [params.pipelineType] 
+            : ['VALE', 'TRANSFERENCIA']
+
+        const generatedSlides: SlideResult[] = []
+        let totalValesCompiled = 0
+
+        for (const type of types) {
+            // Obtener todos los grupos con pendientes para este pipeline
+            const pendingStmt = this.db.prepare(`
+                SELECT DISTINCT group_id, location_name, location_code 
+                FROM vales 
+                WHERE status = 'pending' AND pipeline_type = ?
+            `)
+            const groups = pendingStmt.all(type) as any[]
+
+            for (const grp of groups) {
+                const getItemsStmt = this.db.prepare(`
+                    SELECT * FROM vales 
+                    WHERE group_id = ? AND pipeline_type = ? AND status = 'pending'
+                    ORDER BY timestamp ASC
+                `)
+                const items = getItemsStmt.all(grp.group_id, type) as any[]
+                if (items.length === 0) continue
+
+                // Procesar en bloques de hasta 4
+                while (items.length > 0) {
+                    const batch = items.splice(0, 4).map(row => ({
+                        id: row.id,
+                        timestamp: row.timestamp,
+                        groupId: row.group_id,
+                        locationName: row.location_name,
+                        locationCode: row.location_code,
+                        senderName: row.sender_name,
+                        senderPhone: row.sender_phone,
+                        caption: row.caption,
+                        imagePath: row.image_path,
+                        slideId: null,
+                        slideSlot: null,
+                        status: 'pending' as const
+                    }))
+
+                    const location = {
+                        id: grp.group_id,
+                        name: grp.location_name,
+                        code: grp.location_code
+                    }
+
+                    const slidesDir = type === 'TRANSFERENCIA'
+                        ? path.join(process.cwd(), this.config.transferSlidesPath || 'database/slides_transferencias')
+                        : path.join(process.cwd(), this.config.slidesPath || 'database/slides')
+
+                    const slidePrefix = type === 'TRANSFERENCIA'
+                        ? `SLIDE-TRANS-${location.code}-`
+                        : `SLIDE-${location.code}-`
+
+                    const footerText = type === 'TRANSFERENCIA'
+                        ? `Dleon • Transferencias Bancarias • ${location.name}`
+                        : `Dleon • ${location.name}`
+
+                    const slideResult = await generateSlide2x2(location, batch, slidesDir, {
+                        slidePrefix,
+                        footerText
+                    })
+
+                    const slideUrl = type === 'TRANSFERENCIA'
+                        ? `/assets/slides_transferencias/${path.basename(slideResult.slideImagePath)}`
+                        : `/assets/slides/${path.basename(slideResult.slideImagePath)}`
+
+                    // Guardar Diapositiva en SQLite
+                    const insertSlideStmt = this.db.prepare(`
+                        INSERT INTO slides (id, location_code, location_name, created_at, image_path, image_url, vales_count, pipeline_type)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    `)
+                    insertSlideStmt.run(
+                        slideResult.slideId,
+                        location.code,
+                        location.name,
+                        slideResult.createdAt,
+                        slideResult.slideImagePath,
+                        slideUrl,
+                        batch.length,
+                        type
+                    )
+
+                    // Actualizar los ítems en SQLite
+                    const updateValeStmt = this.db.prepare(`
+                        UPDATE vales 
+                        SET slide_id = ?, slide_slot = ?, status = 'grouped' 
+                        WHERE id = ?
+                    `)
+                    batch.forEach((v, idx) => {
+                        updateValeStmt.run(slideResult.slideId, idx + 1, v.id)
+                    })
+
+                    totalValesCompiled += batch.length
+                    generatedSlides.push({
+                        ...slideResult,
+                        slideRelativeUrl: slideUrl
+                    })
+                }
+            }
+        }
+
+        return {
+            compiledCount: totalValesCompiled,
+            slides: generatedSlides
+        }
+    }
+
     private getNextItemNumber(locationCode: string, pipelineType: PipelineType): number {
         const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM vales WHERE location_code = ? AND pipeline_type = ?')
         const result = countStmt.get(locationCode, pipelineType) as { total: number }

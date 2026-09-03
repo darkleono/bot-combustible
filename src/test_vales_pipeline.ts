@@ -119,6 +119,35 @@ async function runTests() {
     console.log(`CSV Vales generado: ${csvVales.trim().split('\n').length} filas`)
     console.log(`CSV Transferencias generado: ${csvTrans.trim().split('\n').length} filas`)
 
+    // 7. Probar Compilación Forzada de Lotes Incompletos (ej. 2 items pendientes)
+    console.log('\n--- 5. PRUEBA DE COMPILACIÓN FORZADA (LOTE INCOMPLETO) ---')
+    // Ingestar 2 transferencias sin llegar a 4
+    await valesService.processVoucher({
+        groupId: testChat,
+        senderJid: '5219212498019@s.whatsapp.net',
+        senderName: 'Coordinación',
+        caption: 'comprobante transfer UP-99',
+        rawImageBufferOrPath: sampleTransfers[0],
+        type: 'TRANSFERENCIA'
+    })
+    await valesService.processVoucher({
+        groupId: testChat,
+        senderJid: '5219212498019@s.whatsapp.net',
+        senderName: 'Coordinación',
+        caption: 'comprobante transfer UP-100',
+        rawImageBufferOrPath: sampleTransfers[1],
+        type: 'TRANSFERENCIA'
+    })
+
+    const pendingBefore = valesService.getStats('TRANSFERENCIA').pendingVales
+    console.log(`Pendientes antes de forzar compilación: ${pendingBefore}`)
+
+    const forceRes = await valesService.compilePendingSlides({ pipelineType: 'TRANSFERENCIA' })
+    console.log(`Documentos compilados: ${forceRes.compiledCount} en ${forceRes.slides.length} diapositiva(s)`)
+    
+    const pendingAfter = valesService.getStats('TRANSFERENCIA').pendingVales
+    console.log(`Pendientes después de forzar compilación: ${pendingAfter}`)
+
     // Limpieza de temporales
     fs.rmSync(testDir, { recursive: true, force: true })
     console.log('\n✅ TODAS LAS PRUEBAS DEL MULTI-PIPELINE PASARON AL 100%.')

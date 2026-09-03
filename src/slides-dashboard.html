@@ -591,7 +591,12 @@
         <div id="slidesTab" class="tab-content active">
             <div class="section-header">
                 <h2 class="section-title">Diapositivas 2x2 Listas para Oficina</h2>
-                <button class="btn btn-outline" onclick="loadData()">🔄 Actualizar</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <button class="btn btn-accent" id="compileBtn1" onclick="compilePendingNow()">
+                        ⚡ Compilar Diapositiva Ahora (<span id="pendingBtnCount1">0</span>)
+                    </button>
+                    <button class="btn btn-outline" onclick="loadData()">🔄 Actualizar</button>
+                </div>
             </div>
             <div class="slides-grid" id="slidesContainer">
                 <!-- Se inyecta dinámicamente -->
@@ -602,6 +607,9 @@
         <div id="valesTab" class="tab-content">
             <div class="section-header">
                 <h2 class="section-title">Historial y Conciliación Documental</h2>
+                <button class="btn btn-accent" id="compileBtn2" onclick="compilePendingNow()">
+                    ⚡ Compilar Diapositiva Ahora (<span id="pendingBtnCount2">0</span>)
+                </button>
             </div>
             <div class="table-wrapper">
                 <table>
@@ -761,9 +769,15 @@
                 const data = await res.json();
 
                 // Métricas
+                const pending = data.pendingVales || 0;
                 document.getElementById('valesCount').textContent = data.totalVales || 0;
                 document.getElementById('slidesCount').textContent = data.totalSlides || 0;
-                document.getElementById('pendingCount').textContent = data.pendingVales || 0;
+                document.getElementById('pendingCount').textContent = pending;
+                
+                const count1 = document.getElementById('pendingBtnCount1');
+                const count2 = document.getElementById('pendingBtnCount2');
+                if (count1) count1.textContent = pending;
+                if (count2) count2.textContent = pending;
 
                 // Render Slides
                 const slidesGrid = document.getElementById('slidesContainer');
@@ -991,6 +1005,35 @@
                 }
             } catch (err) {
                 alert('Error: ' + err.message);
+            }
+        }
+
+        async function compilePendingNow() {
+            const btn1 = document.getElementById('compileBtn1');
+            const btn2 = document.getElementById('compileBtn2');
+            if (btn1) btn1.disabled = true;
+            if (btn2) btn2.disabled = true;
+
+            try {
+                const url = currentFilter === 'ALL' ? '/api/vales/compile-now' : `/api/vales/compile-now?type=${currentFilter}`;
+                const res = await fetch(url, { method: 'POST' });
+                const data = await res.json();
+
+                if (data.status === 'ok') {
+                    if (data.compiledCount > 0) {
+                        alert(`🎉 ¡Éxito! Se compilaron ${data.compiledCount} documento(s) en ${data.slidesCount} nueva(s) diapositiva(s) 2x2.`);
+                    } else {
+                        alert('ℹ️ No hay documentos pendientes para compilar en este filtro.');
+                    }
+                    loadData();
+                } else {
+                    alert('❌ Error al compilar: ' + (data.error || 'Desconocido'));
+                }
+            } catch (err) {
+                alert('❌ Error de conexión: ' + err.message);
+            } finally {
+                if (btn1) btn1.disabled = false;
+                if (btn2) btn2.disabled = false;
             }
         }
 
