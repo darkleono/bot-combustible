@@ -22,9 +22,18 @@ export const registerDynamicFlows = () => {
             let currentFlow = addKeyword(flowData.keywords, { sensitive: false })
 
             // 🔍 FILTRO MANUAL
-            currentFlow = currentFlow.addAction(async (ctx, { endFlow }) => {
+            currentFlow = currentFlow.addAction(async (ctx, { endFlow, state }) => {
                 const message = ctx.body.trim().toLowerCase()
                 if (flowId === 'INICIO') {
+                    const keywords = (flowData.keywords as string[]).map(k => k.toLowerCase())
+                    if (!keywords.includes(message)) return endFlow()
+                }
+                if (flowId === 'SALIDA') {
+                    const currentState = await (state as any).getMyState()
+                    // 🛡️ Si no hay una sesión activa con datos, ignorar por completo
+                    if (!currentState || (!currentState.name && !currentState.phone && !currentState.coordinador)) {
+                        return endFlow()
+                    }
                     const keywords = (flowData.keywords as string[]).map(k => k.toLowerCase())
                     if (!keywords.includes(message)) return endFlow()
                 }

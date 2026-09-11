@@ -131,8 +131,13 @@ export const ActionBridge = {
     },
 
     CLEAR_STATE: async (_: any, { state, flowDynamic, endFlow }: any) => {
+        const currentState = await (state as any).getMyState()
+        // 🛡️ GUARDIA DE ESTADO: Solo despedirse si el usuario estaba en un proceso de carga activo
+        if (!currentState || (!currentState.name && !currentState.phone && !currentState.coordinador)) {
+            return endFlow()
+        }
         await (state as any).clear()
-        logger.success('Sistema: Memoria Limpia Manual.', 'SESSION')
+        logger.success(`Sistema: Sesión de carga cancelada para [${currentState.name || 'Conductor'}].`, 'SESSION')
         await flowDynamic("👋 *Sesión cerrada.* Has salido del proceso actual.")
         return endFlow()
     },
